@@ -7,6 +7,88 @@ export interface None {
     __kind__: "None";
 }
 export type Option<T> = Some<T> | None;
+export interface Tenant {
+    id: bigint;
+    domain: string;
+    ownerPrincipal: Principal;
+    name: string;
+    createdAt: bigint;
+}
+export interface MitigationControl {
+    controlName: string;
+    maturityLevel: MaturityLevel;
+    controlId: string;
+}
+export interface GovernanceSummary {
+    total: bigint;
+    byStatus: Array<[GovernanceStatus, bigint]>;
+    byCategory: Array<[GovernanceCategory, bigint]>;
+}
+export interface ComplianceControl {
+    id: bigint;
+    status: ControlStatus;
+    controlName: string;
+    owner: string;
+    description: string;
+    frameworkId: bigint;
+    updatedAt: bigint;
+    controlId: string;
+    evidence: string;
+}
+export interface CreateGovernanceItemInput {
+    title: string;
+    owner: string;
+    approvedBy: string;
+    reviewDate: string;
+    description: string;
+    category: GovernanceCategory;
+}
+export interface RiskStats {
+    avgResidualScore: bigint;
+    total: bigint;
+    byLevel: Array<[RiskLevel, bigint]>;
+    avgInherentScore: bigint;
+    byStatus: Array<[RiskStatus, bigint]>;
+}
+export interface CreateRiskInput {
+    treatmentNotes: string;
+    impact: bigint;
+    title: string;
+    treatment: RiskTreatment;
+    dueDate: string;
+    description: string;
+    mitigationControls: Array<MitigationControl>;
+    vulnerability: string;
+    treatmentOwner: string;
+    treatmentPlanOwner: string;
+    threatCategory: ThreatCategory;
+    treatmentPlanReviewDate: string;
+    treatmentPlanDescription: string;
+    likelihood: bigint;
+    treatmentPlanTargetDate: string;
+}
+export interface TenantCreateInput {
+    domain: string;
+    name: string;
+}
+export interface ComplianceFramework {
+    id: bigint;
+    name: string;
+    description: string;
+    version: string;
+}
+export interface GovernanceItem {
+    id: bigint;
+    status: GovernanceStatus;
+    title: string;
+    owner: string;
+    approvedBy: string;
+    createdAt: bigint;
+    reviewDate: string;
+    description: string;
+    updatedAt: bigint;
+    category: GovernanceCategory;
+}
 export interface UpdateRiskInput {
     id: bigint;
     treatmentNotes?: string;
@@ -36,6 +118,7 @@ export interface RiskItem {
     dueDate: string;
     description: string;
     mitigationControls: Array<MitigationControl>;
+    tenantId: bigint;
     residualRiskScore: bigint;
     updatedAt: bigint;
     vulnerability: string;
@@ -48,23 +131,6 @@ export interface RiskItem {
     likelihood: bigint;
     riskLevel: RiskLevel;
     treatmentPlanTargetDate: string;
-}
-export interface GovernanceItem {
-    id: bigint;
-    status: GovernanceStatus;
-    title: string;
-    owner: string;
-    approvedBy: string;
-    createdAt: bigint;
-    reviewDate: string;
-    description: string;
-    updatedAt: bigint;
-    category: GovernanceCategory;
-}
-export interface MitigationControl {
-    controlName: string;
-    maturityLevel: MaturityLevel;
-    controlId: string;
 }
 export interface ComplianceScores {
     frameworkName: string;
@@ -81,12 +147,6 @@ export interface CreateComplianceControlInput {
     controlId: string;
     evidence: string;
 }
-export interface UpdateComplianceControlInput {
-    id: bigint;
-    status?: ControlStatus;
-    owner?: string;
-    evidence?: string;
-}
 export interface UpdateGovernanceItemInput {
     id: bigint;
     status?: GovernanceStatus;
@@ -97,64 +157,25 @@ export interface UpdateGovernanceItemInput {
     description?: string;
     category?: GovernanceCategory;
 }
-export interface GovernanceSummary {
-    total: bigint;
-    byStatus: Array<[GovernanceStatus, bigint]>;
-    byCategory: Array<[GovernanceCategory, bigint]>;
-}
-export interface CreateGovernanceItemInput {
-    title: string;
-    owner: string;
-    approvedBy: string;
-    reviewDate: string;
-    description: string;
-    category: GovernanceCategory;
-}
-export interface ComplianceControl {
+export interface UpdateComplianceControlInput {
     id: bigint;
-    status: ControlStatus;
-    controlName: string;
-    owner: string;
-    description: string;
-    frameworkId: bigint;
-    updatedAt: bigint;
-    controlId: string;
-    evidence: string;
+    status?: ControlStatus;
+    owner?: string;
+    evidence?: string;
 }
-export interface RiskStats {
-    avgResidualScore: bigint;
-    total: bigint;
-    byLevel: Array<[RiskLevel, bigint]>;
-    avgInherentScore: bigint;
-    byStatus: Array<[RiskStatus, bigint]>;
-}
-export interface CreateRiskInput {
-    treatmentNotes: string;
-    impact: bigint;
-    title: string;
-    treatment: RiskTreatment;
-    dueDate: string;
-    description: string;
-    mitigationControls: Array<MitigationControl>;
-    vulnerability: string;
-    treatmentOwner: string;
-    treatmentPlanOwner: string;
-    threatCategory: ThreatCategory;
-    treatmentPlanReviewDate: string;
-    treatmentPlanDescription: string;
-    likelihood: bigint;
-    treatmentPlanTargetDate: string;
-}
-export interface ComplianceFramework {
-    id: bigint;
-    name: string;
-    description: string;
-    version: string;
+export interface UserApprovalInfo {
+    status: ApprovalStatus;
+    principal: Principal;
 }
 export interface UserProfile {
     name: string;
     email: string;
     department: string;
+}
+export enum ApprovalStatus {
+    pending = "pending",
+    approved = "approved",
+    rejected = "rejected"
 }
 export enum ControlStatus {
     notImplemented = "notImplemented",
@@ -215,11 +236,15 @@ export enum UserRole {
 }
 export interface backendInterface {
     assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
+    assignUserToTenant(user: Principal, tenantId: bigint): Promise<void>;
     createComplianceControl(input: CreateComplianceControlInput): Promise<bigint>;
     createGovernanceItem(input: CreateGovernanceItemInput): Promise<bigint>;
     createRisk(input: CreateRiskInput): Promise<bigint>;
+    createTenant(input: TenantCreateInput): Promise<bigint>;
     deleteGovernanceItem(id: bigint): Promise<void>;
     deleteRisk(id: bigint): Promise<void>;
+    deleteTenant(id: bigint): Promise<void>;
+    getCallerTenant(): Promise<Tenant | null>;
     getCallerUserProfile(): Promise<UserProfile | null>;
     getCallerUserRole(): Promise<UserRole>;
     getComplianceControls(frameworkId: bigint): Promise<Array<ComplianceControl>>;
@@ -230,11 +255,18 @@ export interface backendInterface {
     getRiskById(id: bigint): Promise<RiskItem | null>;
     getRiskStats(): Promise<RiskStats>;
     getRisks(): Promise<Array<RiskItem>>;
+    getRisksByTenant(tenantId: bigint): Promise<Array<RiskItem>>;
     getUserProfile(user: Principal): Promise<UserProfile | null>;
+    getUserTenant(user: Principal): Promise<Tenant | null>;
     initializeGRCData(): Promise<void>;
     initializeISMSRepository(): Promise<void>;
     isCallerAdmin(): Promise<boolean>;
+    isCallerApproved(): Promise<boolean>;
+    listApprovals(): Promise<Array<UserApprovalInfo>>;
+    listTenants(): Promise<Array<Tenant>>;
+    requestApproval(): Promise<void>;
     saveCallerUserProfile(profile: UserProfile): Promise<void>;
+    setApproval(user: Principal, status: ApprovalStatus): Promise<void>;
     updateComplianceControl(input: UpdateComplianceControlInput): Promise<ComplianceControl>;
     updateGovernanceItem(input: UpdateGovernanceItemInput): Promise<GovernanceItem>;
     updateRisk(input: UpdateRiskInput): Promise<RiskItem>;

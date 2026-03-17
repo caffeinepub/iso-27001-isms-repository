@@ -2,6 +2,7 @@ import type { Principal } from "@icp-sdk/core/principal";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
+  ApprovalStatus,
   type ComplianceControl,
   type ComplianceFramework,
   type ComplianceScores,
@@ -12,9 +13,11 @@ import {
   type GovernanceSummary,
   type RiskItem,
   type RiskStats,
+  type Tenant,
   type UpdateComplianceControlInput,
   type UpdateGovernanceItemInput,
   type UpdateRiskInput,
+  type UserApprovalInfo,
   UserRole,
 } from "../backend";
 import type { Document, DocumentStatus } from "../types/document";
@@ -74,6 +77,82 @@ export function useIsAdmin() {
   });
 }
 
+export function useIsApproved() {
+  const { actor, isFetching } = useActor();
+  return useQuery<boolean>({
+    queryKey: ["isApproved"],
+    queryFn: async () => {
+      if (!actor) return false;
+      return actor.isCallerApproved();
+    },
+    enabled: !!actor && !isFetching,
+    refetchInterval: 15000,
+  });
+}
+
+export function useIsAdminAssigned() {
+  const { actor, isFetching } = useActor();
+  return useQuery<boolean>({
+    queryKey: ["isAdminAssigned"],
+    queryFn: async () => {
+      if (!actor) return true; // assume assigned to avoid flicker
+      const a = actor as any;
+      if (typeof a.isAdminAssigned !== "function") return true;
+      return a.isAdminAssigned();
+    },
+    enabled: !!actor && !isFetching,
+  });
+}
+
+export function useListApprovals() {
+  const { actor, isFetching } = useActor();
+  return useQuery<UserApprovalInfo[]>({
+    queryKey: ["approvals"],
+    queryFn: async () => {
+      if (!actor) return [];
+      return actor.listApprovals();
+    },
+    enabled: !!actor && !isFetching,
+  });
+}
+
+export function useSetApproval() {
+  const { actor } = useActor();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      user,
+      status,
+    }: { user: Principal; status: ApprovalStatus }) => {
+      if (!actor) throw new Error("No actor");
+      await actor.setApproval(user, status);
+    },
+    onSuccess: (_data, variables) => {
+      qc.invalidateQueries({ queryKey: ["approvals"] });
+      const label =
+        variables.status === ApprovalStatus.approved ? "approved" : "denied";
+      toast.success(`User access ${label} successfully`);
+    },
+    onError: () => toast.error("Failed to update approval status"),
+  });
+}
+
+export function useRequestApproval() {
+  const { actor } = useActor();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      if (!actor) throw new Error("No actor");
+      await actor.requestApproval();
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["isApproved"] });
+      toast.success("Access request submitted");
+    },
+    onError: () => toast.error("Failed to submit access request"),
+  });
+}
+
 export function useInitializeRepository() {
   const { actor } = useActor();
   const qc = useQueryClient();
@@ -103,6 +182,107 @@ export function useAssignRole() {
   });
 }
 
+// ── Tenants ────────────────────────────────────────────────────────────────
+
+export function useListTenants() {
+  const { actor, isFetching } = useActor();
+  return useQuery<Tenant[]>({
+    queryKey: ["tenants"],
+    queryFn: async () => {
+      if (!actor) return [];
+      return actor.listTenants();
+    },
+    enabled: !!actor && !isFetching,
+  });
+}
+
+export function useCreateTenant() {
+  const { actor } = useActor();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ name, domain }: { name: string; domain: string }) => {
+      if (!actor) throw new Error("No actor");
+      return actor.createTenant({ name, domain });
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["tenants"] });
+      toast.success("Tenant created successfully");
+    },
+    onError: () => toast.error("Failed to create tenant"),
+  });
+}
+
+export function useDeleteTenant() {
+  const { actor } = useActor();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: bigint) => {
+      if (!actor) throw new Error("No actor");
+      return actor.deleteTenant(id);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["tenants"] });
+      qc.invalidateQueries({ queryKey: ["userTenants"] });
+      toast.success("Tenant deleted");
+    },
+    onError: () => toast.error("Failed to delete tenant"),
+  });
+}
+
+export function useAssignUserToTenant() {
+  const { actor } = useActor();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      user,
+      tenantId,
+    }: { user: Principal; tenantId: bigint }) => {
+      if (!actor) throw new Error("No actor");
+      return actor.assignUserToTenant(user, tenantId);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["userTenants"] });
+      toast.success("User assigned to tenant");
+    },
+    onError: () => toast.error("Failed to assign user to tenant"),
+  });
+}
+
+export function useGetUserTenant(user: Principal | null) {
+  const { actor, isFetching } = useActor();
+  return useQuery<Tenant | null>({
+    queryKey: ["userTenants", user?.toString()],
+    queryFn: async () => {
+      if (!actor || !user) return null;
+      return actor.getUserTenant(user);
+    },
+    enabled: !!actor && !isFetching && !!user,
+  });
+}
+
+export function useCallerTenant() {
+  const { actor, isFetching } = useActor();
+  return useQuery<Tenant | null>({
+    queryKey: ["callerTenant"],
+    queryFn: async () => {
+      if (!actor) return null;
+      return actor.getCallerTenant();
+    },
+    enabled: !!actor && !isFetching,
+  });
+}
+
+export function useRisksByTenant(tenantId: bigint | null) {
+  const { actor, isFetching } = useActor();
+  return useQuery<import("../backend").RiskItem[]>({
+    queryKey: ["risksByTenant", tenantId?.toString()],
+    queryFn: async () => {
+      if (!actor || tenantId === null) return [];
+      return actor.getRisksByTenant(tenantId);
+    },
+    enabled: !!actor && !isFetching && tenantId !== null,
+  });
+}
 // ── Risks ──────────────────────────────────────────────────────────────────
 
 export function useRisks() {
@@ -352,5 +532,7 @@ export type {
   GovernanceSummary,
   RiskItem,
   RiskStats,
+  Tenant,
+  UserApprovalInfo,
 };
-export { ControlStatus };
+export { ApprovalStatus, ControlStatus };

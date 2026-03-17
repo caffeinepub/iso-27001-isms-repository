@@ -50,7 +50,6 @@ function controlStatusLabel(status: ControlStatus) {
 function FrameworkControls({ frameworkId }: { frameworkId: bigint }) {
   const { data: controls, isLoading } = useComplianceControls(frameworkId);
   const updateControl = useUpdateComplianceControl();
-
   if (isLoading) {
     return (
       <div data-ocid="compliance.loading_state" className="space-y-2">
@@ -108,6 +107,7 @@ function FrameworkControls({ frameworkId }: { frameworkId: bigint }) {
               )}
             </div>
           </div>
+
           <div className="shrink-0">
             <Select
               value={control.status}

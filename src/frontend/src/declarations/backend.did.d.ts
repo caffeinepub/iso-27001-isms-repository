@@ -10,6 +10,9 @@ import type { ActorMethod } from '@icp-sdk/core/agent';
 import type { IDL } from '@icp-sdk/core/candid';
 import type { Principal } from '@icp-sdk/core/principal';
 
+export type ApprovalStatus = { 'pending' : null } |
+  { 'approved' : null } |
+  { 'rejected' : null };
 export interface ComplianceControl {
   'id' : bigint,
   'status' : ControlStatus,
@@ -117,6 +120,7 @@ export interface RiskItem {
   'dueDate' : string,
   'description' : string,
   'mitigationControls' : Array<MitigationControl>,
+  'tenantId' : bigint,
   'residualRiskScore' : bigint,
   'updatedAt' : bigint,
   'vulnerability' : string,
@@ -148,6 +152,14 @@ export type RiskTreatment = { 'accept' : null } |
   { 'avoid' : null } |
   { 'mitigate' : null } |
   { 'transfer' : null };
+export interface Tenant {
+  'id' : bigint,
+  'domain' : string,
+  'ownerPrincipal' : Principal,
+  'name' : string,
+  'createdAt' : bigint,
+}
+export interface TenantCreateInput { 'domain' : string, 'name' : string }
 export type ThreatCategory = { 'nonHostileOutsiders' : null } |
   { 'hostileInsiders' : null } |
   { 'legal' : null } |
@@ -190,6 +202,10 @@ export interface UpdateRiskInput {
   'likelihood' : [] | [bigint],
   'treatmentPlanTargetDate' : [] | [string],
 }
+export interface UserApprovalInfo {
+  'status' : ApprovalStatus,
+  'principal' : Principal,
+}
 export interface UserProfile {
   'name' : string,
   'email' : string,
@@ -227,14 +243,18 @@ export interface _SERVICE {
   '_caffeineStorageUpdateGatewayPrincipals' : ActorMethod<[], undefined>,
   '_initializeAccessControlWithSecret' : ActorMethod<[string], undefined>,
   'assignCallerUserRole' : ActorMethod<[Principal, UserRole], undefined>,
+  'assignUserToTenant' : ActorMethod<[Principal, bigint], undefined>,
   'createComplianceControl' : ActorMethod<
     [CreateComplianceControlInput],
     bigint
   >,
   'createGovernanceItem' : ActorMethod<[CreateGovernanceItemInput], bigint>,
   'createRisk' : ActorMethod<[CreateRiskInput], bigint>,
+  'createTenant' : ActorMethod<[TenantCreateInput], bigint>,
   'deleteGovernanceItem' : ActorMethod<[bigint], undefined>,
   'deleteRisk' : ActorMethod<[bigint], undefined>,
+  'deleteTenant' : ActorMethod<[bigint], undefined>,
+  'getCallerTenant' : ActorMethod<[], [] | [Tenant]>,
   'getCallerUserProfile' : ActorMethod<[], [] | [UserProfile]>,
   'getCallerUserRole' : ActorMethod<[], UserRole>,
   'getComplianceControls' : ActorMethod<[bigint], Array<ComplianceControl>>,
@@ -245,11 +265,18 @@ export interface _SERVICE {
   'getRiskById' : ActorMethod<[bigint], [] | [RiskItem]>,
   'getRiskStats' : ActorMethod<[], RiskStats>,
   'getRisks' : ActorMethod<[], Array<RiskItem>>,
+  'getRisksByTenant' : ActorMethod<[bigint], Array<RiskItem>>,
   'getUserProfile' : ActorMethod<[Principal], [] | [UserProfile]>,
+  'getUserTenant' : ActorMethod<[Principal], [] | [Tenant]>,
   'initializeGRCData' : ActorMethod<[], undefined>,
   'initializeISMSRepository' : ActorMethod<[], undefined>,
   'isCallerAdmin' : ActorMethod<[], boolean>,
+  'isCallerApproved' : ActorMethod<[], boolean>,
+  'listApprovals' : ActorMethod<[], Array<UserApprovalInfo>>,
+  'listTenants' : ActorMethod<[], Array<Tenant>>,
+  'requestApproval' : ActorMethod<[], undefined>,
   'saveCallerUserProfile' : ActorMethod<[UserProfile], undefined>,
+  'setApproval' : ActorMethod<[Principal, ApprovalStatus], undefined>,
   'updateComplianceControl' : ActorMethod<
     [UpdateComplianceControlInput],
     ComplianceControl

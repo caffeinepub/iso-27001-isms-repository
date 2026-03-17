@@ -4,7 +4,6 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
   Building2,
-  ChevronDown,
   FileText,
   LayoutDashboard,
   LogIn,
@@ -18,6 +17,8 @@ import {
 import { AnimatePresence, motion } from "motion/react";
 import { useState } from "react";
 import type { Page } from "../../App";
+import cybxsanLogo from "../../assets/cybxsan-logo.png";
+import { UserRole } from "../../backend";
 import { useInternetIdentity } from "../../hooks/useInternetIdentity";
 import { useCallerRole, useIsAdmin } from "../../hooks/useQueries";
 
@@ -27,6 +28,12 @@ interface LayoutProps {
   children: React.ReactNode;
 }
 
+const roleBadgeStyles: Record<UserRole, string> = {
+  [UserRole.admin]: "bg-orange-500/20 text-orange-300 border-orange-500/40",
+  [UserRole.user]: "bg-cyan-500/20 text-cyan-300 border-cyan-500/40",
+  [UserRole.guest]: "bg-slate-500/20 text-slate-400 border-slate-500/40",
+};
+
 export function Layout({ currentPage, onNavigate, children }: LayoutProps) {
   const { identity, login, clear, isLoggingIn } = useInternetIdentity();
   const queryClient = useQueryClient();
@@ -35,10 +42,6 @@ export function Layout({ currentPage, onNavigate, children }: LayoutProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const isAuthenticated = !!identity;
-  const principal = identity?.getPrincipal().toString();
-  const shortPrincipal = principal
-    ? `${principal.substring(0, 8)}...${principal.substring(principal.length - 4)}`
-    : null;
 
   const handleLogout = async () => {
     await clear();
@@ -46,22 +49,72 @@ export function Layout({ currentPage, onNavigate, children }: LayoutProps) {
     setMobileOpen(false);
   };
 
-  const navItems = [
-    { id: "dashboard" as Page, label: "Dashboard", icon: LayoutDashboard },
-    { id: "riskRegister" as Page, label: "Risk Register", icon: AlertTriangle },
-    { id: "compliance" as Page, label: "Compliance", icon: ShieldCheck },
-    { id: "governance" as Page, label: "Governance", icon: Building2 },
-    { id: "documents" as Page, label: "Documents", icon: FileText },
-    ...(isAdmin
-      ? [{ id: "admin" as Page, label: "Admin Panel", icon: Settings }]
-      : []),
+  const allNavItems = [
+    {
+      id: "dashboard" as Page,
+      label: "Dashboard",
+      icon: LayoutDashboard,
+      minRole: "guest",
+    },
+    {
+      id: "documents" as Page,
+      label: "Documents",
+      icon: FileText,
+      minRole: "guest",
+    },
+    {
+      id: "riskRegister" as Page,
+      label: "Risk Register",
+      icon: AlertTriangle,
+      minRole: "user",
+    },
+    {
+      id: "compliance" as Page,
+      label: "Compliance",
+      icon: ShieldCheck,
+      minRole: "user",
+    },
+    {
+      id: "governance" as Page,
+      label: "Governance",
+      icon: Building2,
+      minRole: "user",
+    },
+    {
+      id: "admin" as Page,
+      label: "Admin Panel",
+      icon: Settings,
+      minRole: "admin",
+    },
   ];
+
+  // Filter nav items based on role
+  const getNavItems = () => {
+    const currentRole = role ?? UserRole.guest;
+    return allNavItems.filter((item) => {
+      if (item.minRole === "guest") return true;
+      if (item.minRole === "user")
+        return currentRole === UserRole.user || currentRole === UserRole.admin;
+      if (item.minRole === "admin")
+        return currentRole === UserRole.admin || isAdmin;
+      return false;
+    });
+  };
+
+  const navItems = getNavItems();
+
+  const roleLabel = role
+    ? role.charAt(0).toUpperCase() + role.slice(1)
+    : "Guest";
+  const roleBadgeClass = role
+    ? roleBadgeStyles[role]
+    : roleBadgeStyles[UserRole.guest];
 
   const SidebarContent = () => (
     <>
       <div className="px-5 py-4 border-b border-sidebar-border">
         <img
-          src="/assets/uploads/Futuristic-CybXSan-Logo-with-Neon-X-1.jpg"
+          src={cybxsanLogo}
           alt="CybXSan Logo"
           className="h-12 w-auto object-contain"
         />
@@ -108,11 +161,20 @@ export function Layout({ currentPage, onNavigate, children }: LayoutProps) {
               <div className="flex items-center gap-2 mb-1">
                 <Shield className="w-3.5 h-3.5 text-primary shrink-0" />
                 <span className="text-xs font-medium text-sidebar-accent-foreground">
-                  {role ? role.charAt(0).toUpperCase() + role.slice(1) : "User"}
+                  Signed In
                 </span>
+                <Badge
+                  className={`ml-auto text-[10px] border py-0 px-1.5 ${roleBadgeClass}`}
+                >
+                  {roleLabel}
+                </Badge>
               </div>
-              <p className="text-[11px] text-sidebar-foreground font-mono truncate">
-                {shortPrincipal}
+              <p className="text-[11px] text-sidebar-foreground/60 truncate">
+                {role === UserRole.admin
+                  ? "Full platform access"
+                  : role === UserRole.user
+                    ? "Standard access"
+                    : "Limited access"}
               </p>
             </div>
             <Button
@@ -187,7 +249,7 @@ export function Layout({ currentPage, onNavigate, children }: LayoutProps) {
 
           <div className="flex-1">
             <img
-              src="/assets/uploads/Futuristic-CybXSan-Logo-with-Neon-X-1.jpg"
+              src={cybxsanLogo}
               alt="CybXSan Logo"
               className="h-9 w-auto object-contain"
             />
@@ -195,10 +257,17 @@ export function Layout({ currentPage, onNavigate, children }: LayoutProps) {
 
           <div className="flex items-center gap-2">
             {isAuthenticated && (
-              <div className="hidden sm:flex items-center gap-1.5 text-xs text-muted-foreground bg-muted/40 px-2.5 py-1.5 rounded-md">
-                <Shield className="w-3.5 h-3.5 text-primary" />
-                <span className="font-mono">{shortPrincipal}</span>
-                <ChevronDown className="w-3 h-3" />
+              <div className="hidden sm:flex items-center gap-2">
+                <Badge
+                  data-ocid="nav.role.toggle"
+                  className={`text-xs border ${roleBadgeClass}`}
+                >
+                  {roleLabel}
+                </Badge>
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-muted/40 px-2.5 py-1.5 rounded-md">
+                  <Shield className="w-3.5 h-3.5 text-primary" />
+                  <span>Signed In</span>
+                </div>
               </div>
             )}
           </div>

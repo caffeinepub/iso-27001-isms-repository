@@ -36,9 +36,16 @@ import {
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   AlertTriangle,
   ChevronDown,
   ChevronRight,
+  Info,
   Loader2,
   Pencil,
   Plus,
@@ -59,6 +66,8 @@ import {
   type UpdateRiskInput,
 } from "../backend";
 import {
+  useCallerRole,
+  useCallerTenant,
   useCreateRisk,
   useDeleteRisk,
   useRiskStats,
@@ -696,6 +705,11 @@ export function RiskRegister() {
   const createRisk = useCreateRisk();
   const updateRisk = useUpdateRisk();
   const deleteRisk = useDeleteRisk();
+  const { data: callerRole } = useCallerRole();
+  const { data: callerTenant, isLoading: tenantLoading } = useCallerTenant();
+
+  const isAdmin = callerRole === "admin";
+  const hasTenant = isAdmin || !!callerTenant;
 
   const [filterLevel, setFilterLevel] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<string>("all");
@@ -784,16 +798,45 @@ export function RiskRegister() {
               Identify, assess, and manage organizational risks
             </p>
           </div>
-          <Button
-            data-ocid="risk.open_modal_button"
-            onClick={openAdd}
-            className="shrink-0"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Add Risk
-          </Button>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span>
+                  <Button
+                    data-ocid="risk.open_modal_button"
+                    onClick={openAdd}
+                    className="shrink-0"
+                    disabled={!hasTenant}
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Risk
+                  </Button>
+                </span>
+              </TooltipTrigger>
+              {!hasTenant && (
+                <TooltipContent>
+                  You need to be assigned to an organization before adding
+                  risks.
+                </TooltipContent>
+              )}
+            </Tooltip>
+          </TooltipProvider>
         </div>
       </motion.div>
+
+      {/* No-tenant notice */}
+      {!tenantLoading && !hasTenant && (
+        <div
+          data-ocid="risk.no_tenant.error_state"
+          className="flex items-start gap-3 bg-amber-500/10 border border-amber-500/30 rounded-lg px-4 py-3 mb-6"
+        >
+          <Info className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+          <p className="text-sm text-amber-300">
+            You have not been assigned to an organization yet. Contact your
+            administrator to be assigned to a tenant before adding risks.
+          </p>
+        </div>
+      )}
 
       {/* Stats row */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
@@ -971,6 +1014,7 @@ export function RiskRegister() {
                     <TableHead className="text-xs">Level</TableHead>
                     <TableHead className="text-xs">Treatment</TableHead>
                     <TableHead className="text-xs">Status</TableHead>
+                    <TableHead className="text-xs">Org</TableHead>
                     <TableHead className="text-xs w-20">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -1032,6 +1076,13 @@ export function RiskRegister() {
                             {risk.status === RiskStatus.inTreatment
                               ? "In Treatment"
                               : risk.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge className="text-[10px] bg-slate-800/80 text-slate-400 border-slate-700/60 font-mono">
+                            {risk.tenantId === 0n
+                              ? "Global"
+                              : `Org #${Number(risk.tenantId)}`}
                           </Badge>
                         </TableCell>
                         <TableCell>

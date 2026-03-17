@@ -1,8 +1,8 @@
 import MixinAuthorization "authorization/MixinAuthorization";
 import AccessControl "authorization/access-control";
+import UserApproval "user-approval/approval";
 import MixinStorage "blob-storage/Mixin";
 import Storage "blob-storage/Storage";
-import Array "mo:core/Array";
 import Order "mo:core/Order";
 import Iter "mo:core/Iter";
 import Map "mo:core/Map";
@@ -10,9 +10,10 @@ import Text "mo:core/Text";
 import Time "mo:core/Time";
 import Nat "mo:core/Nat";
 import Int "mo:core/Int";
-import Runtime "mo:core/Runtime";
 import List "mo:core/List";
+import Runtime "mo:core/Runtime";
 import Set "mo:core/Set";
+import Array "mo:core/Array";
 import VarArray "mo:core/VarArray";
 import Principal "mo:core/Principal";
 
@@ -21,10 +22,45 @@ import Principal "mo:core/Principal";
 actor {
   include MixinStorage();
 
-  // Extend authorization
   let accessControlState = AccessControl.initState();
   include MixinAuthorization(accessControlState);
 
+  let approvalState = UserApproval.initState(accessControlState);
+
+  // Helper function to check if caller is approved or admin
+  func isApprovedOrAdmin(caller : Principal) : Bool {
+    AccessControl.hasPermission(accessControlState, caller, #admin) or UserApproval.isApproved(approvalState, caller);
+  };
+
+  // Approval System
+  public query ({ caller }) func isCallerApproved() : async Bool {
+    AccessControl.hasPermission(accessControlState, caller, #admin) or UserApproval.isApproved(approvalState, caller);
+  };
+
+  public shared ({ caller }) func requestApproval() : async () {
+    UserApproval.requestApproval(approvalState, caller);
+  };
+
+  public shared ({ caller }) func setApproval(user : Principal, status : UserApproval.ApprovalStatus) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can perform this action");
+    };
+    UserApproval.setApproval(approvalState, user, status);
+  };
+
+  public query ({ caller }) func listApprovals() : async [UserApproval.UserApprovalInfo] {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can perform this action");
+    };
+    UserApproval.listApprovals(approvalState);
+  };
+
+  // Check if admin has been assigned yet (used for first-time setup UI)
+  public query func isAdminAssigned() : async Bool {
+    accessControlState.adminAssigned;
+  };
+
+  // User Profiles
   public type UserProfile = {
     name : Text;
     email : Text;
@@ -33,10 +69,9 @@ actor {
 
   let userProfiles = Map.empty<Principal, UserProfile>();
 
-  // User Profile Functions
   public query ({ caller }) func getCallerUserProfile() : async ?UserProfile {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can view profiles");
+    if (not isApprovedOrAdmin(caller)) {
+      Runtime.trap("Unauthorized: Only approved users can view profiles");
     };
     userProfiles.get(caller);
   };
@@ -45,17 +80,20 @@ actor {
     if (caller != user and not AccessControl.isAdmin(accessControlState, caller)) {
       Runtime.trap("Unauthorized: Can only view your own profile");
     };
+    if (caller == user and not isApprovedOrAdmin(caller)) {
+      Runtime.trap("Unauthorized: Only approved users can view profiles");
+    };
     userProfiles.get(user);
   };
 
   public shared ({ caller }) func saveCallerUserProfile(profile : UserProfile) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can save profiles");
+    if (not isApprovedOrAdmin(caller)) {
+      Runtime.trap("Unauthorized: Only approved users can save profiles");
     };
     userProfiles.add(caller, profile);
   };
 
-  // Document Types
+  // Document Management
   type DocumentStatus = {
     #notStarted;
     #inProgress;
@@ -104,7 +142,7 @@ actor {
     isAnnexA : ?Bool;
   };
 
-  // Risk Register Types
+  // Risk Management Types
   public type ThreatCategory = {
     #hostileInsiders;
     #nonHostileInsiders;
@@ -152,6 +190,7 @@ actor {
 
   public type RiskItem = {
     id : Nat;
+    tenantId : Nat;
     title : Text;
     description : Text;
     threatCategory : ThreatCategory;
@@ -274,7 +313,7 @@ actor {
     byStatus : [(GovernanceStatus, Nat)];
   };
 
-  // Compliance Frameworks and Controls Types
+  // Compliance Types
   type ComplianceFramework = {
     id : Nat;
     name : Text;
@@ -325,7 +364,24 @@ actor {
     implemented : Nat;
   };
 
-  // Storage
+  // Tenant Types and State
+  public type Tenant = {
+    id : Nat;
+    name : Text;
+    domain : Text;
+    ownerPrincipal : Principal;
+    createdAt : Int;
+  };
+
+  public type TenantCreateInput = {
+    name : Text;
+    domain : Text;
+  };
+
+  var nextTenantId = 1;
+  let tenants = Map.empty<Nat, Tenant>();
+  let userTenantMap = Map.empty<Principal, Nat>();
+
   let documents = Map.empty<Nat, Document>();
   var nextDocumentId = 1;
 
@@ -341,7 +397,12 @@ actor {
   let controls = Map.empty<Nat, ComplianceControl>();
   var nextControlId = 1;
 
-  // Helper functions
+  // Tenant association maps (separate to avoid stable-type migration issues)
+  let govTenantMap = Map.empty<Nat, Nat>();
+  let ctrlTenantMap = Map.empty<Nat, Nat>();
+  let docTenantMap = Map.empty<Nat, Nat>();
+
+  // Helper Functions
   func getCurrentTime() : Int {
     Time.now();
   };
@@ -376,15 +437,95 @@ actor {
     inherentScore * minMaturity;
   };
 
-  // ISMS Initialization
+  func getCallerTenantId(caller : Principal) : Nat {
+    switch (userTenantMap.get(caller)) {
+      case (null) { 0 };
+      case (?tenantId) { tenantId };
+    };
+  };
+
+  // Tenant Management
+  public shared ({ caller }) func createTenant(input : TenantCreateInput) : async Nat {
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only admins can create tenants");
+    };
+
+    let id = nextTenantId;
+    let tenant : Tenant = {
+      id;
+      name = input.name;
+      domain = input.domain;
+      ownerPrincipal = caller;
+      createdAt = getCurrentTime();
+    };
+
+    tenants.add(id, tenant);
+    nextTenantId += 1;
+    id;
+  };
+
+  public query ({ caller }) func listTenants() : async [Tenant] {
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only admins can view tenants");
+    };
+    tenants.values().toArray();
+  };
+
+  public shared ({ caller }) func deleteTenant(id : Nat) : async () {
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only admins can delete tenants");
+    };
+
+    switch (tenants.get(id)) {
+      case (null) { Runtime.trap("Tenant not found") };
+      case (?_) {
+        tenants.remove(id);
+      };
+    };
+  };
+
+  public shared ({ caller }) func assignUserToTenant(user : Principal, tenantId : Nat) : async () {
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only admins can assign tenants");
+    };
+
+    switch (tenants.get(tenantId)) {
+      case (null) { Runtime.trap("Tenant not found") };
+      case (?_) {
+        userTenantMap.add(user, tenantId);
+      };
+    };
+  };
+
+  public query ({ caller }) func getCallerTenant() : async ?Tenant {
+    if (not isApprovedOrAdmin(caller)) {
+      Runtime.trap("Unauthorized: Only approved users can view tenant information");
+    };
+
+    switch (userTenantMap.get(caller)) {
+      case (null) { null };
+      case (?tenantId) { tenants.get(tenantId) };
+    };
+  };
+
+  public query ({ caller }) func getUserTenant(user : Principal) : async ?Tenant {
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only admins can view users' tenants");
+    };
+
+    switch (userTenantMap.get(user)) {
+      case (null) { null };
+      case (?tenantId) { tenants.get(tenantId) };
+    };
+  };
+
+  // Repository Initialization
   public shared ({ caller }) func initializeISMSRepository() : async () {
     if (not (AccessControl.isAdmin(accessControlState, caller))) {
       Runtime.trap("Unauthorized: Only admins can perform this action");
     };
 
-    // Pre-populate mandatory documents
     let seeds : [CreateDocumentInput] = [
-      // Context of the Organization
       {
         title = "Scope of ISMS";
         clauseNumber = "4.3";
@@ -420,13 +561,12 @@ actor {
     };
   };
 
-  // GRC Initialization (including Compliance, Risks, Governance)
   public shared ({ caller }) func initializeGRCData() : async () {
     if (not (AccessControl.isAdmin(accessControlState, caller))) {
       Runtime.trap("Unauthorized: Only admins can perform this action");
     };
 
-    // Seed Compliance Frameworks
+    // Framework Seeds
     let frameworkSeeds : [ComplianceFramework] = [
       { id = 1; name = "ISO 27001:2022"; description = "Information Security Management System Standard"; version = "2022" },
       { id = 2; name = "SOC 2 Type II"; description = "Service Organization Control Reports"; version = "Type II" },
@@ -441,10 +581,11 @@ actor {
       nextFrameworkId := framework.id + 1;
     };
 
-    // Seed Compliance Controls (3-5 per framework)
+    // Control Seeds
     let controlSeeds : [ComplianceControl] = [
       {
         id = 1;
+        tenantId = 0;
         frameworkId = 1;
         controlId = "A.5.1";
         controlName = "Policies for information security";
@@ -456,6 +597,7 @@ actor {
       },
       {
         id = 2;
+        tenantId = 0;
         frameworkId = 1;
         controlId = "A.8.1";
         controlName = "User endpoint devices";
@@ -467,6 +609,7 @@ actor {
       },
       {
         id = 3;
+        tenantId = 0;
         frameworkId = 2;
         controlId = "CC6.1";
         controlName = "Logical and Physical Access Controls";
@@ -483,10 +626,11 @@ actor {
       nextControlId := control.id + 1;
     };
 
-    // Seed Sample Risks
+    // Risk Seeds
     let riskSeeds : [RiskItem] = [
       {
         id = 1;
+        tenantId = 0;
         title = "Data Breach via Phishing Attack";
         description = "Risk of unauthorized access to sensitive data through phishing";
         threatCategory = #hostileOutsiders;
@@ -511,6 +655,7 @@ actor {
       },
       {
         id = 2;
+        tenantId = 0;
         title = "Third-Party Vendor Risk";
         description = "Risk from inadequate security controls at third-party vendors";
         threatCategory = #dependencyProblems;
@@ -535,6 +680,7 @@ actor {
       },
       {
         id = 3;
+        tenantId = 0;
         title = "GDPR Non-Compliance";
         description = "Risk of regulatory penalties due to GDPR violations";
         threatCategory = #legal;
@@ -559,6 +705,7 @@ actor {
       },
       {
         id = 4;
+        tenantId = 0;
         title = "System Downtime";
         description = "Risk of extended system unavailability";
         threatCategory = #technicalProblems;
@@ -583,6 +730,7 @@ actor {
       },
       {
         id = 5;
+        tenantId = 0;
         title = "Insider Threat";
         description = "Risk of malicious or negligent insider actions";
         threatCategory = #hostileInsiders;
@@ -612,10 +760,11 @@ actor {
       nextRiskId := risk.id + 1;
     };
 
-    // Seed Sample Governance Items
+    // Governance Seeds
     let governanceSeeds : [GovernanceItem] = [
       {
         id = 1;
+        tenantId = 0;
         title = "Information Security Policy";
         category = #policy;
         description = "Enterprise-wide information security policy";
@@ -628,6 +777,7 @@ actor {
       },
       {
         id = 2;
+        tenantId = 0;
         title = "Security Steering Committee";
         category = #committee;
         description = "Monthly security governance committee";
@@ -640,6 +790,7 @@ actor {
       },
       {
         id = 3;
+        tenantId = 0;
         title = "Q2 2024 Risk Review Meeting";
         category = #meeting;
         description = "Quarterly enterprise risk review";
@@ -652,6 +803,7 @@ actor {
       },
       {
         id = 4;
+        tenantId = 0;
         title = "Complete SOC 2 Audit Preparation";
         category = #actionItem;
         description = "Prepare documentation for SOC 2 Type II audit";
@@ -664,6 +816,7 @@ actor {
       },
       {
         id = 5;
+        tenantId = 0;
         title = "Data Retention Policy";
         category = #policy;
         description = "Policy governing data retention and disposal";
@@ -682,11 +835,13 @@ actor {
     };
   };
 
-  // Risk Register CRUD
+  // Risk Management Updates
   public shared ({ caller }) func createRisk(input : CreateRiskInput) : async Nat {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can create risks");
+    if (not isApprovedOrAdmin(caller)) {
+      Runtime.trap("Unauthorized: Only approved users can create risks");
     };
+
+    let callerTenantId = getCallerTenantId(caller);
 
     let id = nextRiskId;
     let inherentRiskScore = input.likelihood * input.impact;
@@ -695,6 +850,7 @@ actor {
 
     let risk : RiskItem = {
       id;
+      tenantId = callerTenantId;
       title = input.title;
       description = input.description;
       threatCategory = input.threatCategory;
@@ -724,8 +880,8 @@ actor {
   };
 
   public shared ({ caller }) func updateRisk(input : UpdateRiskInput) : async RiskItem {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can update risks");
+    if (not isApprovedOrAdmin(caller)) {
+      Runtime.trap("Unauthorized: Only approved users can update risks");
     };
 
     switch (risks.get(input.id)) {
@@ -753,7 +909,7 @@ actor {
         let riskLevel = determineRiskLevel(residualRiskScore);
 
         let updated : RiskItem = {
-          id = existing.id;
+          existing with
           title = switch (input.title) { case (null) { existing.title }; case (?val) { val } };
           description = switch (input.description) {
             case (null) { existing.description };
@@ -808,51 +964,66 @@ actor {
   };
 
   public shared ({ caller }) func deleteRisk(id : Nat) : async () {
-    if (not (AccessControl.isAdmin(accessControlState, caller))) {
-      Runtime.trap("Unauthorized: Only admins can delete risks");
-    };
-
+    let callerTenantId = getCallerTenantId(caller);
     switch (risks.get(id)) {
       case (null) { Runtime.trap("Risk not found") };
-      case (?_) {
+      case (?risk) {
+        if (risk.tenantId != callerTenantId and not AccessControl.isAdmin(accessControlState, caller)) {
+          Runtime.trap("Unauthorized: Cannot delete another tenant's risk");
+        };
         risks.remove(id);
       };
     };
   };
 
   public query ({ caller }) func getRisks() : async [RiskItem] {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can view risks");
+    let callerTenantId = getCallerTenantId(caller);
+    if (AccessControl.isAdmin(accessControlState, caller)) {
+      return risks.values().toArray();
     };
-    risks.values().toArray();
+    risks.values().toArray().filter(func(risk) { risk.tenantId == callerTenantId });
   };
 
   public query ({ caller }) func getRiskById(id : Nat) : async ?RiskItem {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can view risks");
+    let callerTenantId = getCallerTenantId(caller);
+    switch (risks.get(id)) {
+      case (null) { null };
+      case (?risk) {
+        if (risk.tenantId == callerTenantId or AccessControl.isAdmin(accessControlState, caller)) {
+          ?risk;
+        } else { null };
+      };
     };
-    risks.get(id);
+  };
+
+  public query ({ caller }) func getRisksByTenant(tenantId : Nat) : async [RiskItem] {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can view risks by tenant");
+    };
+    risks.values().toArray().filter(func(risk) { risk.tenantId == tenantId });
   };
 
   public query ({ caller }) func getRiskStats() : async RiskStats {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can view risk statistics");
-    };
-
+    let callerTenantId = getCallerTenantId(caller);
     let all = risks.values().toArray();
-    let total = all.size();
+    let filtered = if (AccessControl.isAdmin(accessControlState, caller)) {
+      all;
+    } else {
+      all.filter(func(risk) { risk.tenantId == callerTenantId });
+    };
+    let total = filtered.size();
 
-    let low = all.filter(func(r) { r.riskLevel == #low }).size();
-    let medium = all.filter(func(r) { r.riskLevel == #medium }).size();
-    let high = all.filter(func(r) { r.riskLevel == #high }).size();
-    let critical = all.filter(func(r) { r.riskLevel == #critical }).size();
+    let low = filtered.filter(func(r) { r.riskLevel == #low }).size();
+    let medium = filtered.filter(func(r) { r.riskLevel == #medium }).size();
+    let high = filtered.filter(func(r) { r.riskLevel == #high }).size();
+    let critical = filtered.filter(func(r) { r.riskLevel == #critical }).size();
 
-    let open = all.filter(func(r) { r.status == #open }).size();
-    let inTreatment = all.filter(func(r) { r.status == #inTreatment }).size();
-    let closed = all.filter(func(r) { r.status == #closed }).size();
+    let open = filtered.filter(func(r) { r.status == #open }).size();
+    let inTreatment = filtered.filter(func(r) { r.status == #inTreatment }).size();
+    let closed = filtered.filter(func(r) { r.status == #closed }).size();
 
     let avgInherentScore = if (total == 0) { 0 } else {
-      let sum = all.foldLeft(
+      let sum = filtered.foldLeft(
         0,
         func(acc, risk) { acc + risk.inherentRiskScore },
       );
@@ -860,7 +1031,7 @@ actor {
     };
 
     let avgResidualScore = if (total == 0) { 0 } else {
-      let sum = all.foldLeft(
+      let sum = filtered.foldLeft(
         0,
         func(acc, risk) { acc + risk.residualRiskScore },
       );
@@ -876,12 +1047,13 @@ actor {
     };
   };
 
-  // Governance CRUD
+  // Governance Operations
   public shared ({ caller }) func createGovernanceItem(input : CreateGovernanceItemInput) : async Nat {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can create governance items");
+    if (not isApprovedOrAdmin(caller)) {
+      Runtime.trap("Unauthorized: Only approved users can create governance items");
     };
 
+    let callerTenantId = getCallerTenantId(caller);
     let id = nextGovernanceId;
 
     let item : GovernanceItem = {
@@ -898,13 +1070,14 @@ actor {
     };
 
     governanceItems.add(id, item);
+    govTenantMap.add(id, callerTenantId);
     nextGovernanceId += 1;
     id;
   };
 
   public shared ({ caller }) func updateGovernanceItem(input : UpdateGovernanceItemInput) : async GovernanceItem {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can update governance items");
+    if (not isApprovedOrAdmin(caller)) {
+      Runtime.trap("Unauthorized: Only approved users can update governance items");
     };
 
     switch (governanceItems.get(input.id)) {
@@ -952,18 +1125,38 @@ actor {
   };
 
   public query ({ caller }) func getGovernanceItems() : async [GovernanceItem] {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can view governance items");
+    if (not isApprovedOrAdmin(caller)) {
+      Runtime.trap("Unauthorized: Only approved users can view governance items");
     };
-    governanceItems.values().toArray();
+    let callerTenantId = getCallerTenantId(caller);
+    if (AccessControl.isAdmin(accessControlState, caller)) {
+      governanceItems.values().toArray();
+    } else {
+      governanceItems.values().toArray().filter(func(item) {
+        switch (govTenantMap.get(item.id)) {
+          case (null) { true }; // seed data (tenantId 0) visible to all
+          case (?tid) { tid == callerTenantId or tid == 0 };
+        };
+      });
+    };
   };
 
   public query ({ caller }) func getGovernanceSummary() : async GovernanceSummary {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can view governance summary");
+    if (not isApprovedOrAdmin(caller)) {
+      Runtime.trap("Unauthorized: Only approved users can view governance summary");
     };
 
-    let all = governanceItems.values().toArray();
+    let callerTenantId = getCallerTenantId(caller);
+    let all = if (AccessControl.isAdmin(accessControlState, caller)) {
+      governanceItems.values().toArray();
+    } else {
+      governanceItems.values().toArray().filter(func(item) {
+        switch (govTenantMap.get(item.id)) {
+          case (null) { true };
+          case (?tid) { tid == callerTenantId or tid == 0 };
+        };
+      });
+    };
     let total = all.size();
 
     let policies = all.filter(func(i) { i.category == #policy }).size();
@@ -986,14 +1179,15 @@ actor {
     };
   };
 
-  // Compliance CRUD
+  // Compliance Management
   public shared ({ caller }) func createComplianceControl(input : CreateComplianceControlInput) : async Nat {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can create compliance controls");
+    if (not isApprovedOrAdmin(caller)) {
+      Runtime.trap("Unauthorized: Only approved users can create compliance controls");
     };
 
     let id = nextControlId;
 
+    let callerTenantId2 = getCallerTenantId(caller);
     let control : ComplianceControl = {
       id;
       frameworkId = input.frameworkId;
@@ -1007,13 +1201,14 @@ actor {
     };
 
     controls.add(id, control);
+    ctrlTenantMap.add(id, callerTenantId2);
     nextControlId += 1;
     id;
   };
 
   public shared ({ caller }) func updateComplianceControl(input : UpdateComplianceControlInput) : async ComplianceControl {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can update compliance controls");
+    if (not isApprovedOrAdmin(caller)) {
+      Runtime.trap("Unauthorized: Only approved users can update compliance controls");
     };
 
     switch (controls.get(input.id)) {
@@ -1041,28 +1236,50 @@ actor {
   };
 
   public query ({ caller }) func getComplianceFrameworks() : async [ComplianceFramework] {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can view compliance frameworks");
+    if (not isApprovedOrAdmin(caller)) {
+      Runtime.trap("Unauthorized: Only approved users can view compliance frameworks");
     };
     frameworks.values().toArray();
   };
 
   public query ({ caller }) func getComplianceControls(frameworkId : Nat) : async [ComplianceControl] {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can view compliance controls");
+    if (not isApprovedOrAdmin(caller)) {
+      Runtime.trap("Unauthorized: Only approved users can view compliance controls");
     };
-    controls.values().toArray().filter(func(c) { c.frameworkId == frameworkId });
+    let callerTenantId = getCallerTenantId(caller);
+    let tenantControls = if (AccessControl.isAdmin(accessControlState, caller)) {
+      controls.values().toArray();
+    } else {
+      controls.values().toArray().filter(func(c) {
+        switch (ctrlTenantMap.get(c.id)) {
+          case (null) { true }; // seed data visible to all
+          case (?tid) { tid == callerTenantId or tid == 0 };
+        };
+      });
+    };
+    tenantControls.filter(func(c) { c.frameworkId == frameworkId });
   };
 
   public query ({ caller }) func getComplianceScores() : async [ComplianceScores] {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can view compliance scores");
+    if (not isApprovedOrAdmin(caller)) {
+      Runtime.trap("Unauthorized: Only approved users can view compliance scores");
     };
 
     let results = List.empty<ComplianceScores>();
 
+    let callerTenantId = getCallerTenantId(caller);
+    let allControls = if (AccessControl.isAdmin(accessControlState, caller)) {
+      controls.values().toArray();
+    } else {
+      controls.values().toArray().filter(func(c) {
+        switch (ctrlTenantMap.get(c.id)) {
+          case (null) { true };
+          case (?tid) { tid == callerTenantId or tid == 0 };
+        };
+      });
+    };
     for (framework in frameworks.values()) {
-      let frameworkControls = controls.values().toArray().filter(
+      let frameworkControls = allControls.filter(
         func(c) { c.frameworkId == framework.id }
       );
       let total = frameworkControls.size();

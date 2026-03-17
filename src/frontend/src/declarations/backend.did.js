@@ -98,6 +98,17 @@ export const CreateRiskInput = IDL.Record({
   'likelihood' : IDL.Nat,
   'treatmentPlanTargetDate' : IDL.Text,
 });
+export const TenantCreateInput = IDL.Record({
+  'domain' : IDL.Text,
+  'name' : IDL.Text,
+});
+export const Tenant = IDL.Record({
+  'id' : IDL.Nat,
+  'domain' : IDL.Text,
+  'ownerPrincipal' : IDL.Principal,
+  'name' : IDL.Text,
+  'createdAt' : IDL.Int,
+});
 export const UserProfile = IDL.Record({
   'name' : IDL.Text,
   'email' : IDL.Text,
@@ -171,6 +182,7 @@ export const RiskItem = IDL.Record({
   'dueDate' : IDL.Text,
   'description' : IDL.Text,
   'mitigationControls' : IDL.Vec(MitigationControl),
+  'tenantId' : IDL.Nat,
   'residualRiskScore' : IDL.Nat,
   'updatedAt' : IDL.Int,
   'vulnerability' : IDL.Text,
@@ -190,6 +202,15 @@ export const RiskStats = IDL.Record({
   'byLevel' : IDL.Vec(IDL.Tuple(RiskLevel, IDL.Nat)),
   'avgInherentScore' : IDL.Nat,
   'byStatus' : IDL.Vec(IDL.Tuple(RiskStatus, IDL.Nat)),
+});
+export const ApprovalStatus = IDL.Variant({
+  'pending' : IDL.Null,
+  'approved' : IDL.Null,
+  'rejected' : IDL.Null,
+});
+export const UserApprovalInfo = IDL.Record({
+  'status' : ApprovalStatus,
+  'principal' : IDL.Principal,
 });
 export const UpdateComplianceControlInput = IDL.Record({
   'id' : IDL.Nat,
@@ -255,6 +276,7 @@ export const idlService = IDL.Service({
   '_caffeineStorageUpdateGatewayPrincipals' : IDL.Func([], [], []),
   '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
   'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
+  'assignUserToTenant' : IDL.Func([IDL.Principal, IDL.Nat], [], []),
   'createComplianceControl' : IDL.Func(
       [CreateComplianceControlInput],
       [IDL.Nat],
@@ -262,8 +284,11 @@ export const idlService = IDL.Service({
     ),
   'createGovernanceItem' : IDL.Func([CreateGovernanceItemInput], [IDL.Nat], []),
   'createRisk' : IDL.Func([CreateRiskInput], [IDL.Nat], []),
+  'createTenant' : IDL.Func([TenantCreateInput], [IDL.Nat], []),
   'deleteGovernanceItem' : IDL.Func([IDL.Nat], [], []),
   'deleteRisk' : IDL.Func([IDL.Nat], [], []),
+  'deleteTenant' : IDL.Func([IDL.Nat], [], []),
+  'getCallerTenant' : IDL.Func([], [IDL.Opt(Tenant)], ['query']),
   'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
   'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
   'getComplianceControls' : IDL.Func(
@@ -282,15 +307,22 @@ export const idlService = IDL.Service({
   'getRiskById' : IDL.Func([IDL.Nat], [IDL.Opt(RiskItem)], ['query']),
   'getRiskStats' : IDL.Func([], [RiskStats], ['query']),
   'getRisks' : IDL.Func([], [IDL.Vec(RiskItem)], ['query']),
+  'getRisksByTenant' : IDL.Func([IDL.Nat], [IDL.Vec(RiskItem)], ['query']),
   'getUserProfile' : IDL.Func(
       [IDL.Principal],
       [IDL.Opt(UserProfile)],
       ['query'],
     ),
+  'getUserTenant' : IDL.Func([IDL.Principal], [IDL.Opt(Tenant)], ['query']),
   'initializeGRCData' : IDL.Func([], [], []),
   'initializeISMSRepository' : IDL.Func([], [], []),
   'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
+  'isCallerApproved' : IDL.Func([], [IDL.Bool], ['query']),
+  'listApprovals' : IDL.Func([], [IDL.Vec(UserApprovalInfo)], ['query']),
+  'listTenants' : IDL.Func([], [IDL.Vec(Tenant)], ['query']),
+  'requestApproval' : IDL.Func([], [], []),
   'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
+  'setApproval' : IDL.Func([IDL.Principal, ApprovalStatus], [], []),
   'updateComplianceControl' : IDL.Func(
       [UpdateComplianceControlInput],
       [ComplianceControl],
@@ -397,6 +429,17 @@ export const idlFactory = ({ IDL }) => {
     'likelihood' : IDL.Nat,
     'treatmentPlanTargetDate' : IDL.Text,
   });
+  const TenantCreateInput = IDL.Record({
+    'domain' : IDL.Text,
+    'name' : IDL.Text,
+  });
+  const Tenant = IDL.Record({
+    'id' : IDL.Nat,
+    'domain' : IDL.Text,
+    'ownerPrincipal' : IDL.Principal,
+    'name' : IDL.Text,
+    'createdAt' : IDL.Int,
+  });
   const UserProfile = IDL.Record({
     'name' : IDL.Text,
     'email' : IDL.Text,
@@ -470,6 +513,7 @@ export const idlFactory = ({ IDL }) => {
     'dueDate' : IDL.Text,
     'description' : IDL.Text,
     'mitigationControls' : IDL.Vec(MitigationControl),
+    'tenantId' : IDL.Nat,
     'residualRiskScore' : IDL.Nat,
     'updatedAt' : IDL.Int,
     'vulnerability' : IDL.Text,
@@ -489,6 +533,15 @@ export const idlFactory = ({ IDL }) => {
     'byLevel' : IDL.Vec(IDL.Tuple(RiskLevel, IDL.Nat)),
     'avgInherentScore' : IDL.Nat,
     'byStatus' : IDL.Vec(IDL.Tuple(RiskStatus, IDL.Nat)),
+  });
+  const ApprovalStatus = IDL.Variant({
+    'pending' : IDL.Null,
+    'approved' : IDL.Null,
+    'rejected' : IDL.Null,
+  });
+  const UserApprovalInfo = IDL.Record({
+    'status' : ApprovalStatus,
+    'principal' : IDL.Principal,
   });
   const UpdateComplianceControlInput = IDL.Record({
     'id' : IDL.Nat,
@@ -554,6 +607,7 @@ export const idlFactory = ({ IDL }) => {
     '_caffeineStorageUpdateGatewayPrincipals' : IDL.Func([], [], []),
     '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
     'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
+    'assignUserToTenant' : IDL.Func([IDL.Principal, IDL.Nat], [], []),
     'createComplianceControl' : IDL.Func(
         [CreateComplianceControlInput],
         [IDL.Nat],
@@ -565,8 +619,11 @@ export const idlFactory = ({ IDL }) => {
         [],
       ),
     'createRisk' : IDL.Func([CreateRiskInput], [IDL.Nat], []),
+    'createTenant' : IDL.Func([TenantCreateInput], [IDL.Nat], []),
     'deleteGovernanceItem' : IDL.Func([IDL.Nat], [], []),
     'deleteRisk' : IDL.Func([IDL.Nat], [], []),
+    'deleteTenant' : IDL.Func([IDL.Nat], [], []),
+    'getCallerTenant' : IDL.Func([], [IDL.Opt(Tenant)], ['query']),
     'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
     'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
     'getComplianceControls' : IDL.Func(
@@ -589,15 +646,22 @@ export const idlFactory = ({ IDL }) => {
     'getRiskById' : IDL.Func([IDL.Nat], [IDL.Opt(RiskItem)], ['query']),
     'getRiskStats' : IDL.Func([], [RiskStats], ['query']),
     'getRisks' : IDL.Func([], [IDL.Vec(RiskItem)], ['query']),
+    'getRisksByTenant' : IDL.Func([IDL.Nat], [IDL.Vec(RiskItem)], ['query']),
     'getUserProfile' : IDL.Func(
         [IDL.Principal],
         [IDL.Opt(UserProfile)],
         ['query'],
       ),
+    'getUserTenant' : IDL.Func([IDL.Principal], [IDL.Opt(Tenant)], ['query']),
     'initializeGRCData' : IDL.Func([], [], []),
     'initializeISMSRepository' : IDL.Func([], [], []),
     'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
+    'isCallerApproved' : IDL.Func([], [IDL.Bool], ['query']),
+    'listApprovals' : IDL.Func([], [IDL.Vec(UserApprovalInfo)], ['query']),
+    'listTenants' : IDL.Func([], [IDL.Vec(Tenant)], ['query']),
+    'requestApproval' : IDL.Func([], [], []),
     'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
+    'setApproval' : IDL.Func([IDL.Principal, ApprovalStatus], [], []),
     'updateComplianceControl' : IDL.Func(
         [UpdateComplianceControlInput],
         [ComplianceControl],
