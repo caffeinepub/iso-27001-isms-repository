@@ -4,6 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { ShieldCheck } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Layout } from "./components/layout/Layout";
+import { ThemeProvider } from "./contexts/ThemeContext";
 import { useActor } from "./hooks/useActor";
 import { useInternetIdentity } from "./hooks/useInternetIdentity";
 import {
@@ -102,7 +103,6 @@ function AppShell() {
     if (typeof fn !== "function") {
       setClaimStatus("claimed");
       clearAdminTokenFromUrl();
-      // Refresh role queries even if method wasn't found
       queryClient.invalidateQueries({ queryKey: ["isAdmin"] });
       queryClient.invalidateQueries({ queryKey: ["isAdminAssigned"] });
       queryClient.invalidateQueries({ queryKey: ["isApproved"] });
@@ -114,7 +114,6 @@ function AppShell() {
       .call(actor, INITIAL_ADMIN_TOKEN)
       .then(() => {
         clearAdminTokenFromUrl();
-        // Invalidate ALL role/auth queries so they re-fetch with updated admin status
         return Promise.all([
           queryClient.invalidateQueries({ queryKey: ["isAdmin"] }),
           queryClient.invalidateQueries({ queryKey: ["isAdminAssigned"] }),
@@ -155,12 +154,10 @@ function AppShell() {
     return <LoadingScreen message="Connecting to platform..." />;
   }
 
-  // Admin claim in progress
   if (INITIAL_ADMIN_TOKEN && claimStatus === "claiming") {
     return <LoadingScreen message="Activating admin access..." />;
   }
 
-  // Admin claim errored
   if (INITIAL_ADMIN_TOKEN && claimStatus === "error") {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -189,7 +186,6 @@ function AppShell() {
     return <LoadingScreen message="Verifying platform status..." />;
   }
 
-  // Any non-admin unapproved user sees the ClaimAdmin screen (handles both admin claim and access request)
   if (!isAdmin) {
     if (approvalLoading || isApproved === undefined) {
       return <LoadingScreen message="Verifying access..." />;
@@ -215,7 +211,7 @@ function AppShell() {
 
 export default function App() {
   return (
-    <>
+    <ThemeProvider>
       <AppShell />
       <Toaster
         position="bottom-right"
@@ -226,6 +222,6 @@ export default function App() {
           },
         }}
       />
-    </>
+    </ThemeProvider>
   );
 }

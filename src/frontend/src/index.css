@@ -72,6 +72,55 @@
     --sidebar-border: 0.22 0.012 240;
     --sidebar-ring: 0.68 0.18 155;
   }
+
+  /* ── Light theme overrides ── */
+  html.light {
+    color-scheme: light;
+
+    --background: 0.97 0.005 240;
+    --foreground: 0.13 0.008 240;
+
+    --card: 0.99 0.003 240;
+    --card-foreground: 0.13 0.008 240;
+
+    --popover: 0.99 0.003 240;
+    --popover-foreground: 0.13 0.008 240;
+
+    --primary: 0.55 0.18 155;
+    --primary-foreground: 0.99 0.003 155;
+
+    --secondary: 0.92 0.005 240;
+    --secondary-foreground: 0.2 0.008 240;
+
+    --muted: 0.94 0.005 240;
+    --muted-foreground: 0.45 0.01 240;
+
+    --accent: 0.55 0.18 155;
+    --accent-foreground: 0.99 0.003 155;
+
+    --destructive: 0.52 0.22 25;
+    --destructive-foreground: 0.99 0.003 25;
+
+    --border: 0.88 0.008 240;
+    --input: 0.9 0.008 240;
+    --ring: 0.55 0.18 155;
+
+    /* Status colors — adjusted for light */
+    --status-not-started: 0.55 0.01 240;
+    --status-in-progress: 0.6 0.17 58;
+    --status-completed: 0.5 0.16 215;
+    --status-approved: 0.55 0.18 155;
+
+    /* Sidebar */
+    --sidebar: 0.95 0.006 240;
+    --sidebar-foreground: 0.2 0.008 240;
+    --sidebar-primary: 0.55 0.18 155;
+    --sidebar-primary-foreground: 0.99 0.003 155;
+    --sidebar-accent: 0.9 0.008 240;
+    --sidebar-accent-foreground: 0.15 0.008 240;
+    --sidebar-border: 0.86 0.008 240;
+    --sidebar-ring: 0.55 0.18 155;
+  }
 }
 
 @layer base {
@@ -85,6 +134,10 @@
 
   html {
     color-scheme: dark;
+  }
+
+  html.light {
+    color-scheme: light;
   }
 }
 

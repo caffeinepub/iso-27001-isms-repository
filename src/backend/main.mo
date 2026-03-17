@@ -595,7 +595,6 @@ actor {
     let controlSeeds : [ComplianceControl] = [
       {
         id = 1;
-        tenantId = 0;
         frameworkId = 1;
         controlId = "A.5.1";
         controlName = "Policies for information security";
@@ -607,7 +606,6 @@ actor {
       },
       {
         id = 2;
-        tenantId = 0;
         frameworkId = 1;
         controlId = "A.8.1";
         controlName = "User endpoint devices";
@@ -619,7 +617,6 @@ actor {
       },
       {
         id = 3;
-        tenantId = 0;
         frameworkId = 2;
         controlId = "CC6.1";
         controlName = "Logical and Physical Access Controls";
@@ -774,7 +771,6 @@ actor {
     let governanceSeeds : [GovernanceItem] = [
       {
         id = 1;
-        tenantId = 0;
         title = "Information Security Policy";
         category = #policy;
         description = "Enterprise-wide information security policy";
@@ -787,7 +783,6 @@ actor {
       },
       {
         id = 2;
-        tenantId = 0;
         title = "Security Steering Committee";
         category = #committee;
         description = "Monthly security governance committee";
@@ -800,7 +795,6 @@ actor {
       },
       {
         id = 3;
-        tenantId = 0;
         title = "Q2 2024 Risk Review Meeting";
         category = #meeting;
         description = "Quarterly enterprise risk review";
@@ -813,7 +807,6 @@ actor {
       },
       {
         id = 4;
-        tenantId = 0;
         title = "Complete SOC 2 Audit Preparation";
         category = #actionItem;
         description = "Prepare documentation for SOC 2 Type II audit";
@@ -826,7 +819,6 @@ actor {
       },
       {
         id = 5;
-        tenantId = 0;
         title = "Data Retention Policy";
         category = #policy;
         description = "Policy governing data retention and disposal";
@@ -1344,5 +1336,126 @@ actor {
       Runtime.trap("Unauthorized: Only admins can update SSO configuration");
     };
     ssoConfig := config;
+  };
+
+  // ── Uploaded Document Metadata (blob-storage backed) ─────────────────────
+
+  public type UploadedDocumentMeta = {
+    id : Nat;
+    title : Text;
+    clauseNumber : Text;
+    fileName : Text;
+    fileSize : Nat;
+    blobUrl : Text;
+    uploadedAt : Int;
+  };
+
+  var uploadedDocCounter : Nat = 0;
+  let uploadedDocuments = Map.empty<Nat, UploadedDocumentMeta>();
+
+  public shared ({ caller }) func addUploadedDocument(title : Text, clauseNumber : Text, fileName : Text, fileSize : Nat, blobUrl : Text) : async Nat {
+    if (not isApprovedOrAdmin(caller)) {
+      Runtime.trap("Unauthorized");
+    };
+    uploadedDocCounter += 1;
+    let meta : UploadedDocumentMeta = {
+      id = uploadedDocCounter;
+      title;
+      clauseNumber;
+      fileName;
+      fileSize;
+      blobUrl;
+      uploadedAt = Time.now();
+    };
+    uploadedDocuments.add(uploadedDocCounter, meta);
+    uploadedDocCounter;
+  };
+
+  public query ({ caller }) func getUploadedDocuments() : async [UploadedDocumentMeta] {
+    if (not isApprovedOrAdmin(caller)) {
+      Runtime.trap("Unauthorized");
+    };
+    uploadedDocuments.values().toArray();
+  };
+
+  public shared ({ caller }) func deleteUploadedDocument(id : Nat) : async () {
+    if (not isApprovedOrAdmin(caller)) {
+      Runtime.trap("Unauthorized");
+    };
+    uploadedDocuments.remove(id);
+  };
+
+  // ── Governance Attachment Metadata (blob-storage backed) ─────────────────
+
+  public type GovAttachmentMeta = {
+    fileName : Text;
+    fileSize : Nat;
+    blobUrl : Text;
+    uploadedAt : Int;
+  };
+
+  let govAttachments = Map.empty<Nat, GovAttachmentMeta>();
+
+  public shared ({ caller }) func setGovernanceAttachment(governanceItemId : Nat, fileName : Text, fileSize : Nat, blobUrl : Text) : async () {
+    if (not isApprovedOrAdmin(caller)) {
+      Runtime.trap("Unauthorized");
+    };
+    govAttachments.add(governanceItemId, {
+      fileName;
+      fileSize;
+      blobUrl;
+      uploadedAt = Time.now();
+    });
+  };
+
+  public query ({ caller }) func getGovernanceAttachment(governanceItemId : Nat) : async ?GovAttachmentMeta {
+    if (not isApprovedOrAdmin(caller)) {
+      Runtime.trap("Unauthorized");
+    };
+    govAttachments.get(governanceItemId);
+  };
+
+  public query ({ caller }) func getGovernanceAttachments() : async [(Nat, GovAttachmentMeta)] {
+    if (not isApprovedOrAdmin(caller)) {
+      Runtime.trap("Unauthorized");
+    };
+    govAttachments.entries().toArray();
+  };
+
+  public shared ({ caller }) func deleteGovernanceAttachment(governanceItemId : Nat) : async () {
+    if (not isApprovedOrAdmin(caller)) {
+      Runtime.trap("Unauthorized");
+    };
+    govAttachments.remove(governanceItemId);
+  };
+
+  // ── Governance Framework Mappings ─────────────────────────────────────────
+
+  public type GovFrameworkMapping = {
+    frameworkId : Nat;
+    frameworkName : Text;
+  };
+
+  let govFrameworkMappings = Map.empty<Nat, GovFrameworkMapping>();
+
+  public shared ({ caller }) func setGovernanceFrameworkMapping(governanceItemId : Nat, frameworkId : Nat, frameworkName : Text) : async () {
+    if (not isApprovedOrAdmin(caller)) {
+      Runtime.trap("Unauthorized");
+    };
+    govFrameworkMappings.add(governanceItemId, { frameworkId; frameworkName });
+  };
+
+  public query ({ caller }) func getGovernanceFrameworkMappings() : async [(Nat, GovFrameworkMapping)] {
+    if (not isApprovedOrAdmin(caller)) {
+      Runtime.trap("Unauthorized");
+    };
+    govFrameworkMappings.entries().toArray();
+  };
+
+  public shared ({ caller }) func deleteGovernanceFrameworkMapping(governanceItemId : Nat) : async () {
+    if (not isApprovedOrAdmin(caller)) {
+      Runtime.trap("Unauthorized");
+    };
+    govFrameworkMappings.remove(governanceItemId);
   };
 };

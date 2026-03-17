@@ -172,6 +172,25 @@ export interface UserProfile {
     email: string;
     department: string;
 }
+export interface UploadedDocumentMeta {
+    id: bigint;
+    title: string;
+    clauseNumber: string;
+    fileName: string;
+    fileSize: bigint;
+    blobUrl: string;
+    uploadedAt: bigint;
+}
+export interface GovAttachmentMeta {
+    fileName: string;
+    fileSize: bigint;
+    blobUrl: string;
+    uploadedAt: bigint;
+}
+export interface GovFrameworkMapping {
+    frameworkId: bigint;
+    frameworkName: string;
+}
 export enum ApprovalStatus {
     pending = "pending",
     approved = "approved",
@@ -270,4 +289,14 @@ export interface backendInterface {
     updateComplianceControl(input: UpdateComplianceControlInput): Promise<ComplianceControl>;
     updateGovernanceItem(input: UpdateGovernanceItemInput): Promise<GovernanceItem>;
     updateRisk(input: UpdateRiskInput): Promise<RiskItem>;
+    addUploadedDocument(title: string, clauseNumber: string, fileName: string, fileSize: bigint, blobUrl: string): Promise<bigint>;
+    getUploadedDocuments(): Promise<Array<UploadedDocumentMeta>>;
+    deleteUploadedDocument(id: bigint): Promise<void>;
+    setGovernanceAttachment(governanceItemId: bigint, fileName: string, fileSize: bigint, blobUrl: string): Promise<void>;
+    getGovernanceAttachment(governanceItemId: bigint): Promise<GovAttachmentMeta | null>;
+    getGovernanceAttachments(): Promise<Array<[bigint, GovAttachmentMeta]>>;
+    deleteGovernanceAttachment(governanceItemId: bigint): Promise<void>;
+    setGovernanceFrameworkMapping(governanceItemId: bigint, frameworkId: bigint, frameworkName: string): Promise<void>;
+    getGovernanceFrameworkMappings(): Promise<Array<[bigint, GovFrameworkMapping]>>;
+    deleteGovernanceFrameworkMapping(governanceItemId: bigint): Promise<void>;
 }

@@ -1,6 +1,15 @@
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress";
 import {
   Select,
   SelectContent,
@@ -18,12 +27,27 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { FileText, Filter, Search } from "lucide-react";
+import {
+  Download,
+  FileText,
+  Filter,
+  Loader2,
+  Paperclip,
+  Search,
+  Trash2,
+  Upload,
+} from "lucide-react";
 import { motion } from "motion/react";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { DocumentDetailSheet } from "../components/DocumentDetailSheet";
 import { StatusBadge } from "../components/StatusBadge";
-import { useDocuments, useIsAdmin } from "../hooks/useQueries";
+import {
+  useAddUploadedDocument,
+  useDeleteUploadedDocument,
+  useDocuments,
+  useGetUploadedDocuments,
+  useIsAdmin,
+} from "../hooks/useQueries";
 import { type Document, DocumentStatus } from "../types/document";
 
 function formatDate(ns: bigint): string {
@@ -33,6 +57,12 @@ function formatDate(ns: bigint): string {
     day: "numeric",
     year: "numeric",
   });
+}
+
+function formatSize(bytes: bigint): string {
+  const n = Number(bytes);
+  if (n >= 1024 * 1024) return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(n / 1024).toFixed(1)} KB`;
 }
 
 const CLAUSE_OPTIONS = [
@@ -58,12 +88,24 @@ const STATUS_OPTIONS = [
 export function Documents() {
   const { data: documents, isLoading } = useDocuments();
   const { data: isAdmin } = useIsAdmin();
+  const { data: uploadedDocs = [] } = useGetUploadedDocuments();
+  const addDoc = useAddUploadedDocument();
+  const deleteDoc = useDeleteUploadedDocument();
+
   const [search, setSearch] = useState("");
   const [clauseFilter, setClauseFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [annexAOnly, setAnnexAOnly] = useState(false);
   const [selectedDoc, setSelectedDoc] = useState<Document | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
+
+  // Upload dialog
+  const [uploadOpen, setUploadOpen] = useState(false);
+  const [uploadTitle, setUploadTitle] = useState("");
+  const [uploadClause, setUploadClause] = useState("");
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const filtered = useMemo(() => {
     if (!documents) return [];
@@ -93,6 +135,32 @@ export function Documents() {
     setSheetOpen(true);
   };
 
+  function resetUpload() {
+    setUploadTitle("");
+    setUploadClause("");
+    setUploadFile(null);
+    setUploadProgress(0);
+    if (fileRef.current) fileRef.current.value = "";
+  }
+
+  async function handleUpload() {
+    if (!uploadFile || !uploadTitle.trim()) return;
+    setUploadProgress(0);
+    await addDoc.mutateAsync({
+      file: uploadFile,
+      title: uploadTitle.trim(),
+      clauseNumber: uploadClause.trim(),
+      onProgress: setUploadProgress,
+    });
+    resetUpload();
+    setUploadOpen(false);
+  }
+
+  const uploadedTitlesLower = useMemo(
+    () => new Set(uploadedDocs.map((d) => d.title.toLowerCase())),
+    [uploadedDocs],
+  );
+
   return (
     <div data-ocid="documents.page" className="p-3 sm:p-6 max-w-7xl mx-auto">
       {/* Header */}
@@ -101,16 +169,102 @@ export function Documents() {
         animate={{ opacity: 1, y: 0 }}
         className="mb-6"
       >
-        <div className="flex items-center gap-2 mb-1">
-          <FileText className="w-5 h-5 text-primary" />
-          <h2 className="font-display text-2xl font-bold text-foreground">
-            Document Repository
-          </h2>
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <FileText className="w-5 h-5 text-primary" />
+              <h2 className="font-display text-2xl font-bold text-foreground">
+                Document Repository
+              </h2>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              All mandatory ISMS documents per ISO 27001:2022 clauses and
+              controls
+            </p>
+          </div>
+          <Button
+            data-ocid="documents.upload_button"
+            onClick={() => setUploadOpen(true)}
+            className="shrink-0"
+          >
+            <Upload className="w-4 h-4 mr-2" />
+            Upload Document
+          </Button>
         </div>
-        <p className="text-sm text-muted-foreground">
-          All mandatory ISMS documents per ISO 27001:2022 clauses and controls
-        </p>
       </motion.div>
+
+      {/* Uploaded Documents Section */}
+      {uploadedDocs.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-6"
+        >
+          <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+            <Paperclip className="w-4 h-4 text-primary" />
+            Uploaded Documents
+          </h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {uploadedDocs.map((d, idx) => (
+              <div
+                key={d.id.toString()}
+                data-ocid={`documents.item.${idx + 1}`}
+                className="p-3 rounded-lg bg-card border border-border flex flex-col gap-2"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <FileText className="w-4 h-4 text-primary shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-foreground truncate">
+                        {d.title}
+                      </p>
+                      <p className="text-[11px] text-muted-foreground truncate">
+                        {d.fileName}
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    data-ocid={`documents.delete_button.${idx + 1}`}
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6 shrink-0 hover:text-destructive"
+                    onClick={() => deleteDoc.mutate(d.id)}
+                  >
+                    <Trash2 className="w-3 h-3" />
+                  </Button>
+                </div>
+                <div className="flex items-center gap-3 flex-wrap">
+                  {d.clauseNumber && (
+                    <Badge
+                      variant="outline"
+                      className="text-[10px] border-primary/30 text-primary/70 py-0"
+                    >
+                      {d.clauseNumber}
+                    </Badge>
+                  )}
+                  <span className="text-[11px] text-muted-foreground">
+                    {formatSize(d.fileSize)}
+                  </span>
+                  <span className="text-[11px] text-muted-foreground">
+                    {new Date(
+                      Number(d.uploadedAt / BigInt(1_000_000)),
+                    ).toLocaleDateString()}
+                  </span>
+                </div>
+                <a
+                  href={d.blobUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1 text-[11px] text-primary hover:underline w-fit"
+                >
+                  <Download className="w-3 h-3" />
+                  Download
+                </a>
+              </div>
+            ))}
+          </div>
+        </motion.div>
+      )}
 
       {/* Filters */}
       <motion.div
@@ -253,8 +407,11 @@ export function Documents() {
                         <FileText className="w-3 h-3 text-primary" />
                       </div>
                       <div className="min-w-0">
-                        <p className="text-sm font-medium text-foreground truncate max-w-[220px]">
+                        <p className="text-sm font-medium text-foreground truncate max-w-[200px] flex items-center gap-1.5">
                           {doc.title}
+                          {uploadedTitlesLower.has(doc.title.toLowerCase()) && (
+                            <Paperclip className="w-3 h-3 text-green-500 shrink-0" />
+                          )}
                         </p>
                         {doc.isAnnexA && (
                           <Badge
@@ -299,6 +456,91 @@ export function Documents() {
         onClose={() => setSheetOpen(false)}
         isAdmin={isAdmin ?? false}
       />
+
+      {/* Upload Dialog */}
+      <Dialog
+        open={uploadOpen}
+        onOpenChange={(o) => {
+          setUploadOpen(o);
+          if (!o) resetUpload();
+        }}
+      >
+        <DialogContent data-ocid="documents.dialog" className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-display">Upload Document</DialogTitle>
+          </DialogHeader>
+
+          <div className="grid gap-4 py-2">
+            <div>
+              <Label className="text-xs">Title *</Label>
+              <Input
+                data-ocid="documents.input"
+                className="mt-1.5 h-8 text-sm"
+                placeholder="e.g. Information Security Policy"
+                value={uploadTitle}
+                onChange={(e) => setUploadTitle(e.target.value)}
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Clause Number (optional)</Label>
+              <Input
+                className="mt-1.5 h-8 text-sm"
+                placeholder="e.g. 6.1"
+                value={uploadClause}
+                onChange={(e) => setUploadClause(e.target.value)}
+              />
+            </div>
+            <div>
+              <Label className="text-xs">File *</Label>
+              <input
+                ref={fileRef}
+                type="file"
+                accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg"
+                className="mt-1.5 w-full text-sm text-muted-foreground file:mr-3 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-medium file:bg-primary/10 file:text-primary hover:file:bg-primary/20 cursor-pointer"
+                onChange={(e) => setUploadFile(e.target.files?.[0] ?? null)}
+              />
+              <p className="text-[11px] text-muted-foreground mt-1">
+                PDF, DOC, DOCX, XLS, XLSX, PNG, JPG
+              </p>
+            </div>
+            {addDoc.isPending && uploadProgress > 0 && (
+              <div data-ocid="documents.loading_state">
+                <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
+                  <span>Uploading to backend storage...</span>
+                  <span>{Math.round(uploadProgress)}%</span>
+                </div>
+                <Progress value={uploadProgress} className="h-1.5" />
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button
+              data-ocid="documents.cancel_button"
+              variant="outline"
+              onClick={() => {
+                setUploadOpen(false);
+                resetUpload();
+              }}
+              disabled={addDoc.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              data-ocid="documents.submit_button"
+              onClick={handleUpload}
+              disabled={!uploadFile || !uploadTitle.trim() || addDoc.isPending}
+            >
+              {addDoc.isPending ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Upload className="w-4 h-4 mr-2" />
+              )}
+              {addDoc.isPending ? "Uploading..." : "Upload"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -20,7 +20,13 @@ import {
   type UserApprovalInfo,
   UserRole,
 } from "../backend";
+import type {
+  GovAttachmentMeta,
+  GovFrameworkMapping,
+  UploadedDocumentMeta,
+} from "../types/blobStorage";
 import type { Document, DocumentStatus } from "../types/document";
+import { uploadFileToStorage } from "../utils/uploadToStorage";
 import { useActor } from "./useActor";
 
 // ── Documents ──────────────────────────────────────────────────────────────
@@ -535,6 +541,11 @@ export type {
   Tenant,
   UserApprovalInfo,
 };
+export type {
+  GovAttachmentMeta,
+  GovFrameworkMapping,
+  UploadedDocumentMeta,
+} from "../types/blobStorage";
 export { ApprovalStatus, ControlStatus };
 
 // ── SSO Config ─────────────────────────────────────────────────────────────
@@ -567,5 +578,209 @@ export function useSetSSOConfig() {
       toast.success("SSO settings saved successfully");
     },
     onError: () => toast.error("Failed to save SSO settings"),
+  });
+}
+
+// ── Uploaded Documents (Backend Blob Storage) ──────────────────────────────
+
+export function useGetUploadedDocuments() {
+  const { actor, isFetching } = useActor();
+  return useQuery<UploadedDocumentMeta[]>({
+    queryKey: ["uploadedDocuments"],
+    queryFn: async () => {
+      if (!actor) return [];
+      const a = actor as any;
+      if (typeof a.getUploadedDocuments !== "function") return [];
+      return a.getUploadedDocuments();
+    },
+    enabled: !!actor && !isFetching,
+  });
+}
+
+export function useAddUploadedDocument() {
+  const { actor } = useActor();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      file,
+      title,
+      clauseNumber,
+      onProgress,
+    }: {
+      file: File;
+      title: string;
+      clauseNumber: string;
+      onProgress?: (pct: number) => void;
+    }) => {
+      if (!actor) throw new Error("No actor");
+      const a = actor as any;
+      if (typeof a.addUploadedDocument !== "function") {
+        throw new Error("addUploadedDocument not available");
+      }
+      const blobUrl = await uploadFileToStorage(file, onProgress);
+      return a.addUploadedDocument(
+        title,
+        clauseNumber,
+        file.name,
+        BigInt(file.size),
+        blobUrl,
+      ) as Promise<bigint>;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["uploadedDocuments"] });
+      toast.success("Document uploaded successfully");
+    },
+    onError: () => toast.error("Failed to upload document"),
+  });
+}
+
+export function useDeleteUploadedDocument() {
+  const { actor } = useActor();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: bigint) => {
+      if (!actor) throw new Error("No actor");
+      const a = actor as any;
+      if (typeof a.deleteUploadedDocument !== "function") {
+        throw new Error("deleteUploadedDocument not available");
+      }
+      await a.deleteUploadedDocument(id);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["uploadedDocuments"] });
+      toast.success("Document deleted");
+    },
+    onError: () => toast.error("Failed to delete document"),
+  });
+}
+
+// ── Governance Attachments & Framework Mappings (Backend) ──────────────────
+
+export function useGetGovernanceAttachments() {
+  const { actor, isFetching } = useActor();
+  return useQuery<Map<string, GovAttachmentMeta>>({
+    queryKey: ["govAttachments"],
+    queryFn: async () => {
+      if (!actor) return new Map();
+      const a = actor as any;
+      if (typeof a.getGovernanceAttachments !== "function") return new Map();
+      const pairs: Array<[bigint, GovAttachmentMeta]> =
+        await a.getGovernanceAttachments();
+      return new Map(pairs.map(([id, meta]) => [id.toString(), meta]));
+    },
+    enabled: !!actor && !isFetching,
+  });
+}
+
+export function useSetGovernanceAttachment() {
+  const { actor } = useActor();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      governanceItemId,
+      file,
+      onProgress,
+    }: {
+      governanceItemId: bigint;
+      file: File;
+      onProgress?: (pct: number) => void;
+    }) => {
+      if (!actor) throw new Error("No actor");
+      const a = actor as any;
+      if (typeof a.setGovernanceAttachment !== "function") {
+        throw new Error("setGovernanceAttachment not available");
+      }
+      const blobUrl = await uploadFileToStorage(file, onProgress);
+      await a.setGovernanceAttachment(
+        governanceItemId,
+        file.name,
+        BigInt(file.size),
+        blobUrl,
+      );
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["govAttachments"] });
+    },
+    onError: () => toast.error("Failed to upload attachment"),
+  });
+}
+
+export function useDeleteGovernanceAttachment() {
+  const { actor } = useActor();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (governanceItemId: bigint) => {
+      if (!actor) throw new Error("No actor");
+      const a = actor as any;
+      if (typeof a.deleteGovernanceAttachment !== "function") return;
+      await a.deleteGovernanceAttachment(governanceItemId);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["govAttachments"] });
+    },
+    onError: () => toast.error("Failed to delete attachment"),
+  });
+}
+
+export function useGetGovernanceFrameworkMappings() {
+  const { actor, isFetching } = useActor();
+  return useQuery<Map<string, GovFrameworkMapping>>({
+    queryKey: ["govFrameworkMappings"],
+    queryFn: async () => {
+      if (!actor) return new Map();
+      const a = actor as any;
+      if (typeof a.getGovernanceFrameworkMappings !== "function")
+        return new Map();
+      const pairs: Array<[bigint, GovFrameworkMapping]> =
+        await a.getGovernanceFrameworkMappings();
+      return new Map(pairs.map(([id, fw]) => [id.toString(), fw]));
+    },
+    enabled: !!actor && !isFetching,
+  });
+}
+
+export function useSetGovernanceFrameworkMapping() {
+  const { actor } = useActor();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      governanceItemId,
+      frameworkId,
+      frameworkName,
+    }: {
+      governanceItemId: bigint;
+      frameworkId: bigint;
+      frameworkName: string;
+    }) => {
+      if (!actor) throw new Error("No actor");
+      const a = actor as any;
+      if (typeof a.setGovernanceFrameworkMapping !== "function") return;
+      await a.setGovernanceFrameworkMapping(
+        governanceItemId,
+        frameworkId,
+        frameworkName,
+      );
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["govFrameworkMappings"] });
+    },
+    onError: () => toast.error("Failed to save framework mapping"),
+  });
+}
+
+export function useDeleteGovernanceFrameworkMapping() {
+  const { actor } = useActor();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (governanceItemId: bigint) => {
+      if (!actor) throw new Error("No actor");
+      const a = actor as any;
+      if (typeof a.deleteGovernanceFrameworkMapping !== "function") return;
+      await a.deleteGovernanceFrameworkMapping(governanceItemId);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["govFrameworkMappings"] });
+    },
+    onError: () => toast.error("Failed to delete framework mapping"),
   });
 }

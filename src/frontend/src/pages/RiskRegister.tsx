@@ -41,10 +41,14 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 import {
   AlertTriangle,
   ChevronDown,
   ChevronRight,
+  FileDown,
+  FileSpreadsheet,
   Info,
   Loader2,
   Pencil,
@@ -54,6 +58,7 @@ import {
 } from "lucide-react";
 import { motion } from "motion/react";
 import { useMemo, useState } from "react";
+import * as XLSX from "xlsx";
 import {
   type CreateRiskInput,
   MaturityLevel,
@@ -338,7 +343,7 @@ function statusColor(status: RiskStatus) {
   }
 }
 
-function RiskMatrix({ risks }: { risks: RiskItem[] }) {
+function InherentRiskMatrix({ risks }: { risks: RiskItem[] }) {
   // 3x3 heat map per methodology (Likelihood 1-3, Impact 1-3)
   const cellCounts = useMemo(() => {
     const map: Record<string, number> = {};
@@ -451,6 +456,137 @@ function RiskMatrix({ risks }: { risks: RiskItem[] }) {
           { label: "Low (1–3)", cls: "bg-green-700/70" },
           { label: "Medium (4–6)", cls: "bg-yellow-600/70" },
           { label: "High (7–9)", cls: "bg-red-700/70" },
+        ].map((l) => (
+          <div key={l.label} className="flex items-center gap-1.5">
+            <div className={`w-3 h-3 rounded ${l.cls}`} />
+            <span className="text-[10px] text-muted-foreground">{l.label}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Actual Risk Matrix (3×3) ──────────────────────────────────────────────
+function ActualRiskMatrix({ risks }: { risks: RiskItem[] }) {
+  const cellCounts = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const r of risks) {
+      const inherentScore = Number(r.likelihood) * Number(r.impact);
+      const iLevel = inherentRiskLevel(inherentScore);
+      // Compute average maturity from mitigationControls
+      let maturityForMatrix = 3; // default = Low (3)
+      if (r.mitigationControls && r.mitigationControls.length > 0) {
+        const avg =
+          r.mitigationControls.reduce((sum, ctrl) => {
+            const opt = MATURITY_OPTIONS.find(
+              (m) => m.value === ctrl.maturityLevel,
+            );
+            return sum + (opt ? opt.numericValue : 3);
+          }, 0) / r.mitigationControls.length;
+        maturityForMatrix = Math.min(3, Math.max(1, Math.round(avg)));
+      }
+      const residualLevel = residualRiskLevel(iLevel, maturityForMatrix);
+      const residualNumeric = residualNumericValue(residualLevel);
+      const key = `${residualNumeric}-${maturityForMatrix}`;
+      map[key] = (map[key] ?? 0) + 1;
+    }
+    return map;
+  }, [risks]);
+
+  function cellColor(residual: number, maturity: number) {
+    const score = residual * maturity;
+    if (score >= 6)
+      return "bg-red-700/70 hover:bg-red-700/90 border border-red-600/50";
+    if (score >= 3)
+      return "bg-yellow-600/70 hover:bg-yellow-600/90 border border-yellow-500/50";
+    return "bg-green-700/70 hover:bg-green-700/90 border border-green-600/50";
+  }
+
+  const MATURITY_LABELS: Record<number, string> = {
+    1: "High (1)",
+    2: "Medium (2)",
+    3: "Low (3)",
+  };
+  const RESIDUAL_LABELS: Record<number, string> = {
+    1: "Low (1)",
+    2: "Medium (2)",
+    3: "High (3)",
+  };
+
+  return (
+    <div>
+      <div className="flex gap-2 items-end">
+        <div
+          className="flex flex-col items-center justify-center"
+          style={{
+            writingMode: "vertical-rl",
+            transform: "rotate(180deg)",
+            minWidth: 16,
+          }}
+        >
+          <span className="text-[9px] text-muted-foreground tracking-widest uppercase">
+            Controls Maturity
+          </span>
+        </div>
+        <div className="flex-1">
+          <div className="flex gap-1">
+            <div className="flex flex-col gap-1 justify-around pr-1">
+              {[1, 2, 3].map((mat) => (
+                <div key={mat} className="h-14 flex items-center justify-end">
+                  <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                    {MATURITY_LABELS[mat]}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <div
+              className="grid gap-1 flex-1"
+              style={{
+                gridTemplateColumns: "repeat(3, 1fr)",
+                gridTemplateRows: "repeat(3, 1fr)",
+              }}
+            >
+              {[1, 2, 3].map((mat) =>
+                [1, 2, 3].map((res) => {
+                  const count = cellCounts[`${res}-${mat}`] ?? 0;
+                  const score = res * mat;
+                  return (
+                    <div
+                      key={`${res}-${mat}`}
+                      className={`relative rounded flex flex-col items-center justify-center h-14 text-[10px] font-bold transition-colors ${cellColor(res, mat)}`}
+                    >
+                      <span className="text-white/50 text-[9px]">{score}</span>
+                      {count > 0 && (
+                        <span className="text-white font-bold text-sm leading-none">
+                          {count}
+                        </span>
+                      )}
+                    </div>
+                  );
+                }),
+              )}
+            </div>
+          </div>
+          <div className="flex gap-1 mt-1 ml-[calc(2.5rem+4px)]">
+            {[1, 2, 3].map((r) => (
+              <div key={r} className="flex-1 text-center">
+                <span className="text-[10px] text-muted-foreground">
+                  {RESIDUAL_LABELS[r]}
+                </span>
+              </div>
+            ))}
+          </div>
+          <p className="text-[9px] text-muted-foreground text-center mt-0.5 uppercase tracking-widest">
+            Residual Risk Value
+          </p>
+        </div>
+      </div>
+      <div className="flex gap-3 mt-3 flex-wrap">
+        {[
+          { label: "Low (1–2)", cls: "bg-green-700/70" },
+          { label: "Medium (3–5)", cls: "bg-yellow-600/70" },
+          { label: "High (6–9)", cls: "bg-red-700/70" },
         ].map((l) => (
           <div key={l.label} className="flex items-center gap-1.5">
             <div className={`w-3 h-3 rounded ${l.cls}`} />
@@ -698,6 +834,109 @@ const EMPTY_FORM: CreateRiskInput = {
   dueDate: "",
 };
 
+// ── Export Functions ──────────────────────────────────────────────────────
+function exportToPDF(risks: RiskItem[]) {
+  const doc = new jsPDF();
+  doc.setFontSize(14);
+  doc.text("Risk Register Export", 14, 16);
+  doc.setFontSize(9);
+  doc.text(`Generated: ${new Date().toLocaleDateString()}`, 14, 22);
+
+  const rows = risks.map((r, idx) => {
+    const iScore = Number(r.likelihood) * Number(r.impact);
+    const iLevel = inherentRiskLevel(iScore);
+    let maturityForMatrix = 3;
+    if (r.mitigationControls && r.mitigationControls.length > 0) {
+      const avg =
+        r.mitigationControls.reduce((sum, ctrl) => {
+          const opt = MATURITY_OPTIONS.find(
+            (m) => m.value === ctrl.maturityLevel,
+          );
+          return sum + (opt ? opt.numericValue : 3);
+        }, 0) / r.mitigationControls.length;
+      maturityForMatrix = Math.min(3, Math.max(1, Math.round(avg)));
+    }
+    const rLevel = residualRiskLevel(iLevel, maturityForMatrix);
+    return [
+      idx + 1,
+      r.title,
+      r.threatCategory,
+      Number(r.likelihood),
+      Number(r.impact),
+      iScore,
+      iLevel.charAt(0).toUpperCase() + iLevel.slice(1),
+      rLevel.charAt(0).toUpperCase() + rLevel.slice(1),
+      r.status,
+      r.treatment,
+      r.treatmentOwner || "-",
+      r.dueDate || "-",
+    ];
+  });
+
+  autoTable(doc, {
+    startY: 28,
+    head: [
+      [
+        "#",
+        "Title",
+        "Threat Category",
+        "Likelihood",
+        "Impact",
+        "Inherent Score",
+        "Inherent Level",
+        "Residual Level",
+        "Status",
+        "Treatment",
+        "Owner",
+        "Due Date",
+      ],
+    ],
+    body: rows,
+    styles: { fontSize: 7, cellPadding: 2 },
+    headStyles: { fillColor: [30, 41, 59] },
+  });
+
+  doc.save("risk-register-export.pdf");
+}
+
+function exportToExcel(risks: RiskItem[]) {
+  const rows = risks.map((r, idx) => {
+    const iScore = Number(r.likelihood) * Number(r.impact);
+    const iLevel = inherentRiskLevel(iScore);
+    let maturityForMatrix = 3;
+    if (r.mitigationControls && r.mitigationControls.length > 0) {
+      const avg =
+        r.mitigationControls.reduce((sum, ctrl) => {
+          const opt = MATURITY_OPTIONS.find(
+            (m) => m.value === ctrl.maturityLevel,
+          );
+          return sum + (opt ? opt.numericValue : 3);
+        }, 0) / r.mitigationControls.length;
+      maturityForMatrix = Math.min(3, Math.max(1, Math.round(avg)));
+    }
+    const rLevel = residualRiskLevel(iLevel, maturityForMatrix);
+    return {
+      "#": idx + 1,
+      Title: r.title,
+      "Threat Category": r.threatCategory,
+      Likelihood: Number(r.likelihood),
+      Impact: Number(r.impact),
+      "Inherent Score": iScore,
+      "Inherent Level": iLevel.charAt(0).toUpperCase() + iLevel.slice(1),
+      "Residual Level": rLevel.charAt(0).toUpperCase() + rLevel.slice(1),
+      Status: r.status,
+      Treatment: r.treatment,
+      Owner: r.treatmentOwner || "-",
+      "Due Date": r.dueDate || "-",
+    };
+  });
+
+  const ws = XLSX.utils.json_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Risk Register");
+  XLSX.writeFile(wb, "risk-register-export.xlsx");
+}
+
 // ── Main Component ─────────────────────────────────────────────────────────
 export function RiskRegister() {
   const { data: risks, isLoading } = useRisks();
@@ -798,29 +1037,53 @@ export function RiskRegister() {
               Identify, assess, and manage organizational risks
             </p>
           </div>
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span>
-                  <Button
-                    data-ocid="risk.open_modal_button"
-                    onClick={openAdd}
-                    className="shrink-0"
-                    disabled={!hasTenant}
-                  >
-                    <Plus className="w-4 h-4 mr-2" />
-                    Add Risk
-                  </Button>
-                </span>
-              </TooltipTrigger>
-              {!hasTenant && (
-                <TooltipContent>
-                  You need to be assigned to an organization before adding
-                  risks.
-                </TooltipContent>
-              )}
-            </Tooltip>
-          </TooltipProvider>
+          <div className="flex items-center gap-2">
+            <Button
+              data-ocid="risk.export_pdf.button"
+              variant="outline"
+              size="sm"
+              className="shrink-0 text-xs"
+              disabled={!risks || risks.length === 0 || isLoading}
+              onClick={() => exportToPDF(filteredRisks)}
+            >
+              <FileDown className="w-3.5 h-3.5 mr-1.5" />
+              Export PDF
+            </Button>
+            <Button
+              data-ocid="risk.export_excel.button"
+              variant="outline"
+              size="sm"
+              className="shrink-0 text-xs"
+              disabled={!risks || risks.length === 0 || isLoading}
+              onClick={() => exportToExcel(filteredRisks)}
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5 mr-1.5" />
+              Export Excel
+            </Button>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span>
+                    <Button
+                      data-ocid="risk.open_modal_button"
+                      onClick={openAdd}
+                      className="shrink-0"
+                      disabled={!hasTenant}
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Add Risk
+                    </Button>
+                  </span>
+                </TooltipTrigger>
+                {!hasTenant && (
+                  <TooltipContent>
+                    You need to be assigned to an organization before adding
+                    risks.
+                  </TooltipContent>
+                )}
+              </Tooltip>
+            </TooltipProvider>
+          </div>
         </div>
       </motion.div>
 
@@ -883,95 +1146,116 @@ export function RiskRegister() {
         ))}
       </div>
 
-      <div className="grid lg:grid-cols-3 gap-6 mb-6">
+      <div className="grid lg:grid-cols-2 gap-4 mb-4">
         <Card className="bg-card border-border">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-semibold font-display">
-              Risk Matrix (5×5)
+              Inherent Risk Matrix (3×3)
             </CardTitle>
+            <p className="text-[11px] text-muted-foreground">
+              Likelihood × Impact
+            </p>
           </CardHeader>
           <CardContent>
             {isLoading ? (
               <Skeleton className="h-40 w-full" />
             ) : (
-              <RiskMatrix risks={risks ?? []} />
+              <InherentRiskMatrix risks={risks ?? []} />
             )}
           </CardContent>
         </Card>
 
-        <Card className="bg-card border-border lg:col-span-2">
+        <Card className="bg-card border-border">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-semibold font-display">
-              Filters
+              Actual Risk Matrix (3×3)
             </CardTitle>
+            <p className="text-[11px] text-muted-foreground">
+              Residual Risk × Controls Maturity
+            </p>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid sm:grid-cols-2 gap-3">
-              <div>
-                <Label className="text-xs mb-1.5 block">Risk Level</Label>
-                <Select value={filterLevel} onValueChange={setFilterLevel}>
-                  <SelectTrigger
-                    data-ocid="risk.level.select"
-                    className="h-8 text-xs"
-                  >
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Levels</SelectItem>
-                    <SelectItem value={RiskLevel.critical}>Critical</SelectItem>
-                    <SelectItem value={RiskLevel.high}>High</SelectItem>
-                    <SelectItem value={RiskLevel.medium}>Medium</SelectItem>
-                    <SelectItem value={RiskLevel.low}>Low</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label className="text-xs mb-1.5 block">Status</Label>
-                <Select value={filterStatus} onValueChange={setFilterStatus}>
-                  <SelectTrigger
-                    data-ocid="risk.status.select"
-                    className="h-8 text-xs"
-                  >
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Statuses</SelectItem>
-                    <SelectItem value={RiskStatus.open}>Open</SelectItem>
-                    <SelectItem value={RiskStatus.inTreatment}>
-                      In Treatment
-                    </SelectItem>
-                    <SelectItem value={RiskStatus.closed}>Closed</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {[
-                RiskLevel.critical,
-                RiskLevel.high,
-                RiskLevel.medium,
-                RiskLevel.low,
-              ].map((level) => {
-                const count = (risks ?? []).filter(
-                  (r) => r.riskLevel === level,
-                ).length;
-                return (
-                  <button
-                    type="button"
-                    key={level}
-                    onClick={() =>
-                      setFilterLevel(filterLevel === level ? "all" : level)
-                    }
-                    className={`px-3 py-1 rounded-full text-xs font-medium border transition-all ${riskLevelColor(level)} ${filterLevel === level ? "ring-2 ring-primary/50" : ""}`}
-                  >
-                    {level} ({count})
-                  </button>
-                );
-              })}
-            </div>
+          <CardContent>
+            {isLoading ? (
+              <Skeleton className="h-40 w-full" />
+            ) : (
+              <ActualRiskMatrix risks={risks ?? []} />
+            )}
           </CardContent>
         </Card>
       </div>
+
+      <Card className="bg-card border-border mb-6">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-semibold font-display">
+            Filters
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid sm:grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs mb-1.5 block">Risk Level</Label>
+              <Select value={filterLevel} onValueChange={setFilterLevel}>
+                <SelectTrigger
+                  data-ocid="risk.level.select"
+                  className="h-8 text-xs"
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Levels</SelectItem>
+                  <SelectItem value={RiskLevel.critical}>Critical</SelectItem>
+                  <SelectItem value={RiskLevel.high}>High</SelectItem>
+                  <SelectItem value={RiskLevel.medium}>Medium</SelectItem>
+                  <SelectItem value={RiskLevel.low}>Low</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs mb-1.5 block">Status</Label>
+              <Select value={filterStatus} onValueChange={setFilterStatus}>
+                <SelectTrigger
+                  data-ocid="risk.status.select"
+                  className="h-8 text-xs"
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Statuses</SelectItem>
+                  <SelectItem value={RiskStatus.open}>Open</SelectItem>
+                  <SelectItem value={RiskStatus.inTreatment}>
+                    In Treatment
+                  </SelectItem>
+                  <SelectItem value={RiskStatus.closed}>Closed</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {[
+              RiskLevel.critical,
+              RiskLevel.high,
+              RiskLevel.medium,
+              RiskLevel.low,
+            ].map((level) => {
+              const count = (risks ?? []).filter(
+                (r) => r.riskLevel === level,
+              ).length;
+              return (
+                <button
+                  type="button"
+                  key={level}
+                  onClick={() =>
+                    setFilterLevel(filterLevel === level ? "all" : level)
+                  }
+                  className={`px-3 py-1 rounded-full text-xs font-medium border transition-all ${riskLevelColor(level)} ${filterLevel === level ? "ring-2 ring-primary/50" : ""}`}
+                >
+                  {level} ({count})
+                </button>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Risk Table */}
       <Card className="bg-card border-border">

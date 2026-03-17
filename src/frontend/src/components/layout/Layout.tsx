@@ -1,5 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
@@ -9,9 +10,11 @@ import {
   LogIn,
   LogOut,
   Menu,
+  Moon,
   Settings,
   Shield,
   ShieldCheck,
+  Sun,
   X,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
@@ -19,6 +22,7 @@ import { useState } from "react";
 import type { Page } from "../../App";
 import cybxsanLogo from "../../assets/cybxsan-logo.png";
 import { UserRole } from "../../backend";
+import { useTheme } from "../../contexts/ThemeContext";
 import { useActor } from "../../hooks/useActor";
 import { useInternetIdentity } from "../../hooks/useInternetIdentity";
 import { useCallerRole, useIsAdmin } from "../../hooks/useQueries";
@@ -33,6 +37,12 @@ const roleBadgeStyles: Record<UserRole, string> = {
   [UserRole.admin]: "bg-orange-500/20 text-orange-300 border-orange-500/40",
   [UserRole.user]: "bg-cyan-500/20 text-cyan-300 border-cyan-500/40",
   [UserRole.guest]: "bg-slate-500/20 text-slate-400 border-slate-500/40",
+};
+
+const roleBadgeStylesLight: Record<UserRole, string> = {
+  [UserRole.admin]: "bg-orange-100 text-orange-700 border-orange-300",
+  [UserRole.user]: "bg-cyan-100 text-cyan-700 border-cyan-300",
+  [UserRole.guest]: "bg-slate-100 text-slate-600 border-slate-300",
 };
 
 function useCallerProfile() {
@@ -53,10 +63,12 @@ export function Layout({ currentPage, onNavigate, children }: LayoutProps) {
   const { data: isAdmin } = useIsAdmin();
   const { data: role } = useCallerRole();
   const { data: callerProfile } = useCallerProfile();
+  const { theme, toggleTheme } = useTheme();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [desktopSidebarOpen, setDesktopSidebarOpen] = useState(true);
 
   const isAuthenticated = !!identity;
-
+  const isDark = theme === "dark";
   const displayEmail = callerProfile?.email || null;
 
   const handleLogout = async () => {
@@ -110,7 +122,6 @@ export function Layout({ currentPage, onNavigate, children }: LayoutProps) {
     },
   ];
 
-  // Filter nav items based on role
   const getNavItems = () => {
     const currentRole = role ?? UserRole.guest;
     return allNavItems.filter((item) => {
@@ -129,8 +140,12 @@ export function Layout({ currentPage, onNavigate, children }: LayoutProps) {
     ? role.charAt(0).toUpperCase() + role.slice(1)
     : "Guest";
   const roleBadgeClass = role
-    ? roleBadgeStyles[role]
-    : roleBadgeStyles[UserRole.guest];
+    ? isDark
+      ? roleBadgeStyles[role]
+      : roleBadgeStylesLight[role]
+    : isDark
+      ? roleBadgeStyles[UserRole.guest]
+      : roleBadgeStylesLight[UserRole.guest];
 
   const SidebarContent = () => (
     <>
@@ -228,10 +243,16 @@ export function Layout({ currentPage, onNavigate, children }: LayoutProps) {
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
-      <aside className="hidden md:flex md:w-56 lg:w-64 flex-col bg-sidebar sidebar-grid border-r border-sidebar-border shrink-0">
+      {/* Desktop sidebar — collapsible */}
+      <aside
+        className={`hidden md:flex flex-col bg-sidebar sidebar-grid border-r border-sidebar-border shrink-0 transition-all duration-300 overflow-hidden ${
+          desktopSidebarOpen ? "md:w-56 lg:w-64" : "md:w-0"
+        }`}
+      >
         <SidebarContent />
       </aside>
 
+      {/* Mobile overlay drawer */}
       <AnimatePresence>
         {mobileOpen && (
           <>
@@ -256,11 +277,21 @@ export function Layout({ currentPage, onNavigate, children }: LayoutProps) {
       </AnimatePresence>
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <header className="h-14 shrink-0 border-b border-border bg-card/50 flex items-center px-4 gap-4">
+        <header className="h-14 shrink-0 border-b border-border bg-card/50 flex items-center px-4 gap-3">
+          {/* Hamburger — visible on ALL screen sizes */}
           <button
             type="button"
-            className="md:hidden text-muted-foreground hover:text-foreground"
-            onClick={() => setMobileOpen(!mobileOpen)}
+            data-ocid="nav.sidebar.toggle"
+            className="text-muted-foreground hover:text-foreground transition-colors"
+            onClick={() => {
+              // Mobile: toggle drawer; desktop: toggle collapsed sidebar
+              if (window.innerWidth < 768) {
+                setMobileOpen(!mobileOpen);
+              } else {
+                setDesktopSidebarOpen(!desktopSidebarOpen);
+              }
+            }}
+            aria-label="Toggle navigation"
           >
             {mobileOpen ? (
               <X className="w-5 h-5" />
@@ -277,7 +308,7 @@ export function Layout({ currentPage, onNavigate, children }: LayoutProps) {
             />
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             {isAuthenticated && (
               <div className="hidden sm:flex items-center gap-2">
                 <Badge
@@ -294,6 +325,26 @@ export function Layout({ currentPage, onNavigate, children }: LayoutProps) {
                 </div>
               </div>
             )}
+
+            {/* Theme toggle */}
+            <div className="flex items-center gap-1.5" data-ocid="theme.toggle">
+              <Sun
+                className={`w-4 h-4 transition-colors ${
+                  !isDark ? "text-amber-500" : "text-muted-foreground/50"
+                }`}
+              />
+              <Switch
+                checked={isDark}
+                onCheckedChange={toggleTheme}
+                aria-label="Toggle dark/light theme"
+                className="data-[state=checked]:bg-primary data-[state=unchecked]:bg-amber-400/60"
+              />
+              <Moon
+                className={`w-4 h-4 transition-colors ${
+                  isDark ? "text-primary" : "text-muted-foreground/50"
+                }`}
+              />
+            </div>
           </div>
         </header>
 
