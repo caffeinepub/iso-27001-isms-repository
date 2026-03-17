@@ -21,6 +21,7 @@ import { RequestAccess } from "./pages/RequestAccess";
 import { RiskRegister } from "./pages/RiskRegister";
 import { TrustCenter } from "./pages/TrustCenter";
 import {
+  getSecretFromHash,
   getSessionParameter,
   getUrlParameter,
   storeSessionParameter,
@@ -35,13 +36,22 @@ export type Page =
   | "compliance"
   | "trustCenter";
 
-/** Returns the admin token from URL or session storage, storing it if found in URL */
+/** Returns the admin token from URL (query string or hash fragment) or session storage */
 function getAdminToken(): string | null {
-  const urlToken = getUrlParameter("caffeineAdminToken");
-  if (urlToken) {
-    storeSessionParameter("caffeineAdminToken", urlToken);
-    return urlToken;
+  // 1. Try regular query string: ?caffeineAdminToken=...
+  const queryToken = getUrlParameter("caffeineAdminToken");
+  if (queryToken) {
+    storeSessionParameter("caffeineAdminToken", queryToken);
+    return queryToken;
   }
+
+  // 2. Try hash fragment: #caffeineAdminToken=... (Caffeine platform uses this format)
+  const hashToken = getSecretFromHash("caffeineAdminToken");
+  if (hashToken) {
+    return hashToken;
+  }
+
+  // 3. Fall back to session storage (persisted from a previous page load)
   return getSessionParameter("caffeineAdminToken");
 }
 
@@ -160,7 +170,7 @@ function AppShell() {
     return <Login />;
   }
 
-  // When token present, wait for claim process to complete
+  // When token present, wait for claim process to complete (including post-claim admin check)
   if (tokenPresent && (actorLoading || adminLoading || claiming)) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -183,6 +193,15 @@ function AppShell() {
   // Show claim failure screen
   if (tokenPresent && claimFailed && !isAdmin) {
     return <ClaimAdmin />;
+  }
+
+  // If token was provided and claim succeeded, go directly to admin view
+  if (tokenPresent && isAdmin === true) {
+    return (
+      <Layout currentPage="admin" onNavigate={setPage}>
+        <Admin />
+      </Layout>
+    );
   }
 
   // If no admin has been assigned yet and no token, show the admin claim/setup screen
