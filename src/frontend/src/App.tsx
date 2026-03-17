@@ -7,10 +7,19 @@ import { useActor } from "./hooks/useActor";
 import { useInternetIdentity } from "./hooks/useInternetIdentity";
 import { useIsAdmin } from "./hooks/useQueries";
 import { Admin } from "./pages/Admin";
+import { ComplianceStandards } from "./pages/ComplianceStandards";
 import { Dashboard } from "./pages/Dashboard";
 import { Documents } from "./pages/Documents";
+import { Governance } from "./pages/Governance";
+import { RiskRegister } from "./pages/RiskRegister";
 
-type Page = "dashboard" | "documents" | "admin";
+export type Page =
+  | "dashboard"
+  | "documents"
+  | "admin"
+  | "riskRegister"
+  | "governance"
+  | "compliance";
 
 function AppShell() {
   const { isInitializing } = useInternetIdentity();
@@ -19,25 +28,26 @@ function AppShell() {
   const [page, setPage] = useState<Page>("dashboard");
   const initDone = useRef(false);
 
-  // Initialize ISMS repository once actor is ready (only if authenticated)
   useEffect(() => {
     if (!actor || actorLoading || initDone.current) return;
     initDone.current = true;
-    actor.initializeISMSRepository().catch((err: unknown) => {
-      console.warn("initializeISMSRepository:", err);
-    });
+    Promise.all([
+      actor
+        .initializeISMSRepository()
+        .catch((err: unknown) =>
+          console.warn("initializeISMSRepository:", err),
+        ),
+      actor
+        .initializeGRCData()
+        .catch((err: unknown) => console.warn("initializeGRCData:", err)),
+    ]);
   }, [actor, actorLoading]);
 
-  // If admin tries to view admin page but isn't admin, redirect
   useEffect(() => {
     if (page === "admin" && isAdmin === false) {
       setPage("dashboard");
     }
   }, [page, isAdmin]);
-
-  const handleViewDocument = (_id: bigint) => {
-    setPage("documents");
-  };
 
   if (isInitializing) {
     return (
@@ -51,7 +61,7 @@ function AppShell() {
             <Skeleton className="h-2 w-3/4 mx-auto" />
           </div>
           <p className="text-xs text-muted-foreground">
-            Loading ISMS Portal...
+            Loading GRC Platform...
           </p>
         </div>
       </div>
@@ -60,14 +70,13 @@ function AppShell() {
 
   return (
     <Layout currentPage={page} onNavigate={setPage}>
-      {page === "dashboard" && (
-        <Dashboard onViewDocument={handleViewDocument} />
-      )}
+      {page === "dashboard" && <Dashboard onNavigate={setPage} />}
       {page === "documents" && <Documents />}
+      {page === "riskRegister" && <RiskRegister />}
+      {page === "compliance" && <ComplianceStandards />}
+      {page === "governance" && <Governance />}
       {page === "admin" && isAdmin && <Admin />}
-      {page === "admin" && !isAdmin && (
-        <Dashboard onViewDocument={handleViewDocument} />
-      )}
+      {page === "admin" && !isAdmin && <Dashboard onNavigate={setPage} />}
     </Layout>
   );
 }

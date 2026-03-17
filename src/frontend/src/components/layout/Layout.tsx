@@ -2,6 +2,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useQueryClient } from "@tanstack/react-query";
 import {
+  AlertTriangle,
+  Building2,
   ChevronDown,
   FileText,
   LayoutDashboard,
@@ -15,10 +17,9 @@ import {
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useState } from "react";
+import type { Page } from "../../App";
 import { useInternetIdentity } from "../../hooks/useInternetIdentity";
 import { useCallerRole, useIsAdmin } from "../../hooks/useQueries";
-
-type Page = "dashboard" | "documents" | "admin";
 
 interface LayoutProps {
   currentPage: Page;
@@ -47,6 +48,9 @@ export function Layout({ currentPage, onNavigate, children }: LayoutProps) {
 
   const navItems = [
     { id: "dashboard" as Page, label: "Dashboard", icon: LayoutDashboard },
+    { id: "riskRegister" as Page, label: "Risk Register", icon: AlertTriangle },
+    { id: "compliance" as Page, label: "Compliance", icon: ShieldCheck },
+    { id: "governance" as Page, label: "Governance", icon: Building2 },
     { id: "documents" as Page, label: "Documents", icon: FileText },
     ...(isAdmin
       ? [{ id: "admin" as Page, label: "Admin Panel", icon: Settings }]
@@ -55,25 +59,15 @@ export function Layout({ currentPage, onNavigate, children }: LayoutProps) {
 
   const SidebarContent = () => (
     <>
-      {/* Logo */}
-      <div className="px-5 py-5 border-b border-sidebar-border">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center">
-            <ShieldCheck className="w-4 h-4 text-primary" />
-          </div>
-          <div>
-            <p className="font-display text-sm font-bold text-sidebar-accent-foreground tracking-tight">
-              ISO 27001
-            </p>
-            <p className="text-[10px] text-sidebar-foreground uppercase tracking-widest">
-              ISMS Portal
-            </p>
-          </div>
-        </div>
+      <div className="px-5 py-4 border-b border-sidebar-border">
+        <img
+          src="/assets/uploads/Futuristic-CybXSan-Logo-with-Neon-X-1.jpg"
+          alt="CybXSan Logo"
+          className="h-12 w-auto object-contain"
+        />
       </div>
 
-      {/* Nav */}
-      <nav className="flex-1 px-3 py-4 space-y-0.5">
+      <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
         <p className="text-[10px] font-semibold text-sidebar-foreground/50 uppercase tracking-widest px-2 mb-2">
           Navigation
         </p>
@@ -107,7 +101,6 @@ export function Layout({ currentPage, onNavigate, children }: LayoutProps) {
         })}
       </nav>
 
-      {/* User section */}
       <div className="px-3 pb-4 border-t border-sidebar-border pt-4">
         {isAuthenticated ? (
           <div className="space-y-2">
@@ -151,12 +144,10 @@ export function Layout({ currentPage, onNavigate, children }: LayoutProps) {
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
-      {/* Desktop Sidebar */}
-      <aside className="hidden md:flex md:w-56 lg:w-60 flex-col bg-sidebar sidebar-grid border-r border-sidebar-border shrink-0">
+      <aside className="hidden md:flex md:w-56 lg:w-64 flex-col bg-sidebar sidebar-grid border-r border-sidebar-border shrink-0">
         <SidebarContent />
       </aside>
 
-      {/* Mobile Sidebar Overlay */}
       <AnimatePresence>
         {mobileOpen && (
           <>
@@ -172,7 +163,7 @@ export function Layout({ currentPage, onNavigate, children }: LayoutProps) {
               animate={{ x: 0 }}
               exit={{ x: -240 }}
               transition={{ type: "spring", stiffness: 300, damping: 30 }}
-              className="md:hidden fixed left-0 top-0 bottom-0 w-60 flex flex-col bg-sidebar sidebar-grid border-r border-sidebar-border z-50"
+              className="md:hidden fixed left-0 top-0 bottom-0 w-64 flex flex-col bg-sidebar sidebar-grid border-r border-sidebar-border z-50"
             >
               <SidebarContent />
             </motion.aside>
@@ -180,9 +171,7 @@ export function Layout({ currentPage, onNavigate, children }: LayoutProps) {
         )}
       </AnimatePresence>
 
-      {/* Main area */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {/* Top Bar */}
         <header className="h-14 shrink-0 border-b border-border bg-card/50 flex items-center px-4 gap-4">
           <button
             type="button"
@@ -197,12 +186,11 @@ export function Layout({ currentPage, onNavigate, children }: LayoutProps) {
           </button>
 
           <div className="flex-1">
-            <h1 className="font-display text-sm font-semibold text-foreground">
-              ISO 27001 ISMS
-            </h1>
-            <p className="text-[10px] text-muted-foreground hidden sm:block">
-              Information Security Management System
-            </p>
+            <img
+              src="/assets/uploads/Futuristic-CybXSan-Logo-with-Neon-X-1.jpg"
+              alt="CybXSan Logo"
+              className="h-9 w-auto object-contain"
+            />
           </div>
 
           <div className="flex items-center gap-2">
@@ -216,7 +204,6 @@ export function Layout({ currentPage, onNavigate, children }: LayoutProps) {
           </div>
         </header>
 
-        {/* Page content */}
         <main className="flex-1 overflow-auto scrollbar-thin">{children}</main>
       </div>
     </div>

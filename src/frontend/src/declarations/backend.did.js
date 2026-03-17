@@ -24,26 +24,206 @@ export const UserRole = IDL.Variant({
   'user' : IDL.Null,
   'guest' : IDL.Null,
 });
-export const DocumentStatus = IDL.Variant({
-  'notStarted' : IDL.Null,
-  'completed' : IDL.Null,
-  'approved' : IDL.Null,
-  'inProgress' : IDL.Null,
+export const ControlStatus = IDL.Variant({
+  'notImplemented' : IDL.Null,
+  'partiallyImplemented' : IDL.Null,
+  'fullyImplemented' : IDL.Null,
+  'notApplicable' : IDL.Null,
 });
-export const Document = IDL.Record({
-  'id' : IDL.Nat,
-  'status' : DocumentStatus,
+export const CreateComplianceControlInput = IDL.Record({
+  'status' : ControlStatus,
   'controlName' : IDL.Text,
-  'title' : IDL.Text,
-  'controlNumber' : IDL.Text,
   'owner' : IDL.Text,
+  'description' : IDL.Text,
+  'frameworkId' : IDL.Nat,
+  'controlId' : IDL.Text,
+  'evidence' : IDL.Text,
+});
+export const GovernanceCategory = IDL.Variant({
+  'actionItem' : IDL.Null,
+  'committee' : IDL.Null,
+  'meeting' : IDL.Null,
+  'policy' : IDL.Null,
+});
+export const CreateGovernanceItemInput = IDL.Record({
+  'title' : IDL.Text,
+  'owner' : IDL.Text,
+  'approvedBy' : IDL.Text,
+  'reviewDate' : IDL.Text,
+  'description' : IDL.Text,
+  'category' : GovernanceCategory,
+});
+export const RiskTreatment = IDL.Variant({
+  'accept' : IDL.Null,
+  'avoid' : IDL.Null,
+  'mitigate' : IDL.Null,
+  'transfer' : IDL.Null,
+});
+export const MaturityLevel = IDL.Variant({
+  'low' : IDL.Null,
+  'high' : IDL.Null,
+  'veryLow' : IDL.Null,
+  'critical' : IDL.Null,
+  'medium' : IDL.Null,
+});
+export const MitigationControl = IDL.Record({
+  'controlName' : IDL.Text,
+  'maturityLevel' : MaturityLevel,
+  'controlId' : IDL.Text,
+});
+export const ThreatCategory = IDL.Variant({
+  'nonHostileOutsiders' : IDL.Null,
+  'hostileInsiders' : IDL.Null,
+  'legal' : IDL.Null,
+  'dependencyProblems' : IDL.Null,
+  'hostileOutsiders' : IDL.Null,
+  'environmental' : IDL.Null,
+  'technicalProblems' : IDL.Null,
+  'nonHostileInsiders' : IDL.Null,
+});
+export const CreateRiskInput = IDL.Record({
+  'treatmentNotes' : IDL.Text,
+  'impact' : IDL.Nat,
+  'title' : IDL.Text,
+  'treatment' : RiskTreatment,
+  'dueDate' : IDL.Text,
+  'description' : IDL.Text,
+  'mitigationControls' : IDL.Vec(MitigationControl),
+  'vulnerability' : IDL.Text,
+  'treatmentOwner' : IDL.Text,
+  'treatmentPlanOwner' : IDL.Text,
+  'threatCategory' : ThreatCategory,
+  'treatmentPlanReviewDate' : IDL.Text,
+  'treatmentPlanDescription' : IDL.Text,
+  'likelihood' : IDL.Nat,
+  'treatmentPlanTargetDate' : IDL.Text,
+});
+export const UserProfile = IDL.Record({
+  'name' : IDL.Text,
+  'email' : IDL.Text,
+  'department' : IDL.Text,
+});
+export const ComplianceControl = IDL.Record({
+  'id' : IDL.Nat,
+  'status' : ControlStatus,
+  'controlName' : IDL.Text,
+  'owner' : IDL.Text,
+  'description' : IDL.Text,
+  'frameworkId' : IDL.Nat,
+  'updatedAt' : IDL.Int,
+  'controlId' : IDL.Text,
+  'evidence' : IDL.Text,
+});
+export const ComplianceFramework = IDL.Record({
+  'id' : IDL.Nat,
+  'name' : IDL.Text,
+  'description' : IDL.Text,
+  'version' : IDL.Text,
+});
+export const ComplianceScores = IDL.Record({
+  'frameworkName' : IDL.Text,
+  'total' : IDL.Nat,
+  'score' : IDL.Nat,
+  'implemented' : IDL.Nat,
+});
+export const GovernanceStatus = IDL.Variant({
+  'active' : IDL.Null,
+  'underReview' : IDL.Null,
+  'draft' : IDL.Null,
+  'retired' : IDL.Null,
+});
+export const GovernanceItem = IDL.Record({
+  'id' : IDL.Nat,
+  'status' : GovernanceStatus,
+  'title' : IDL.Text,
+  'owner' : IDL.Text,
+  'approvedBy' : IDL.Text,
   'createdAt' : IDL.Int,
-  'clauseName' : IDL.Text,
+  'reviewDate' : IDL.Text,
   'description' : IDL.Text,
   'updatedAt' : IDL.Int,
-  'fileId' : IDL.Opt(IDL.Text),
-  'isAnnexA' : IDL.Bool,
-  'clauseNumber' : IDL.Text,
+  'category' : GovernanceCategory,
+});
+export const GovernanceSummary = IDL.Record({
+  'total' : IDL.Nat,
+  'byStatus' : IDL.Vec(IDL.Tuple(GovernanceStatus, IDL.Nat)),
+  'byCategory' : IDL.Vec(IDL.Tuple(GovernanceCategory, IDL.Nat)),
+});
+export const RiskStatus = IDL.Variant({
+  'closed' : IDL.Null,
+  'open' : IDL.Null,
+  'inTreatment' : IDL.Null,
+});
+export const RiskLevel = IDL.Variant({
+  'low' : IDL.Null,
+  'high' : IDL.Null,
+  'critical' : IDL.Null,
+  'medium' : IDL.Null,
+});
+export const RiskItem = IDL.Record({
+  'id' : IDL.Nat,
+  'treatmentNotes' : IDL.Text,
+  'status' : RiskStatus,
+  'impact' : IDL.Nat,
+  'title' : IDL.Text,
+  'createdAt' : IDL.Int,
+  'treatment' : RiskTreatment,
+  'dueDate' : IDL.Text,
+  'description' : IDL.Text,
+  'mitigationControls' : IDL.Vec(MitigationControl),
+  'residualRiskScore' : IDL.Nat,
+  'updatedAt' : IDL.Int,
+  'vulnerability' : IDL.Text,
+  'treatmentOwner' : IDL.Text,
+  'treatmentPlanOwner' : IDL.Text,
+  'threatCategory' : ThreatCategory,
+  'treatmentPlanReviewDate' : IDL.Text,
+  'inherentRiskScore' : IDL.Nat,
+  'treatmentPlanDescription' : IDL.Text,
+  'likelihood' : IDL.Nat,
+  'riskLevel' : RiskLevel,
+  'treatmentPlanTargetDate' : IDL.Text,
+});
+export const RiskStats = IDL.Record({
+  'avgResidualScore' : IDL.Nat,
+  'total' : IDL.Nat,
+  'byLevel' : IDL.Vec(IDL.Tuple(RiskLevel, IDL.Nat)),
+  'avgInherentScore' : IDL.Nat,
+  'byStatus' : IDL.Vec(IDL.Tuple(RiskStatus, IDL.Nat)),
+});
+export const UpdateComplianceControlInput = IDL.Record({
+  'id' : IDL.Nat,
+  'status' : IDL.Opt(ControlStatus),
+  'owner' : IDL.Opt(IDL.Text),
+  'evidence' : IDL.Opt(IDL.Text),
+});
+export const UpdateGovernanceItemInput = IDL.Record({
+  'id' : IDL.Nat,
+  'status' : IDL.Opt(GovernanceStatus),
+  'title' : IDL.Opt(IDL.Text),
+  'owner' : IDL.Opt(IDL.Text),
+  'approvedBy' : IDL.Opt(IDL.Text),
+  'reviewDate' : IDL.Opt(IDL.Text),
+  'description' : IDL.Opt(IDL.Text),
+  'category' : IDL.Opt(GovernanceCategory),
+});
+export const UpdateRiskInput = IDL.Record({
+  'id' : IDL.Nat,
+  'treatmentNotes' : IDL.Opt(IDL.Text),
+  'impact' : IDL.Opt(IDL.Nat),
+  'title' : IDL.Opt(IDL.Text),
+  'treatment' : IDL.Opt(RiskTreatment),
+  'dueDate' : IDL.Opt(IDL.Text),
+  'description' : IDL.Opt(IDL.Text),
+  'mitigationControls' : IDL.Opt(IDL.Vec(MitigationControl)),
+  'vulnerability' : IDL.Opt(IDL.Text),
+  'treatmentOwner' : IDL.Opt(IDL.Text),
+  'treatmentPlanOwner' : IDL.Opt(IDL.Text),
+  'threatCategory' : IDL.Opt(ThreatCategory),
+  'treatmentPlanReviewDate' : IDL.Opt(IDL.Text),
+  'treatmentPlanDescription' : IDL.Opt(IDL.Text),
+  'likelihood' : IDL.Opt(IDL.Nat),
+  'treatmentPlanTargetDate' : IDL.Opt(IDL.Text),
 });
 
 export const idlService = IDL.Service({
@@ -75,11 +255,53 @@ export const idlService = IDL.Service({
   '_caffeineStorageUpdateGatewayPrincipals' : IDL.Func([], [], []),
   '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
   'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
+  'createComplianceControl' : IDL.Func(
+      [CreateComplianceControlInput],
+      [IDL.Nat],
+      [],
+    ),
+  'createGovernanceItem' : IDL.Func([CreateGovernanceItemInput], [IDL.Nat], []),
+  'createRisk' : IDL.Func([CreateRiskInput], [IDL.Nat], []),
+  'deleteGovernanceItem' : IDL.Func([IDL.Nat], [], []),
+  'deleteRisk' : IDL.Func([IDL.Nat], [], []),
+  'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
   'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
-  'getDocumentById' : IDL.Func([IDL.Nat], [Document], ['query']),
-  'getDocuments' : IDL.Func([], [IDL.Vec(Document)], ['query']),
+  'getComplianceControls' : IDL.Func(
+      [IDL.Nat],
+      [IDL.Vec(ComplianceControl)],
+      ['query'],
+    ),
+  'getComplianceFrameworks' : IDL.Func(
+      [],
+      [IDL.Vec(ComplianceFramework)],
+      ['query'],
+    ),
+  'getComplianceScores' : IDL.Func([], [IDL.Vec(ComplianceScores)], ['query']),
+  'getGovernanceItems' : IDL.Func([], [IDL.Vec(GovernanceItem)], ['query']),
+  'getGovernanceSummary' : IDL.Func([], [GovernanceSummary], ['query']),
+  'getRiskById' : IDL.Func([IDL.Nat], [IDL.Opt(RiskItem)], ['query']),
+  'getRiskStats' : IDL.Func([], [RiskStats], ['query']),
+  'getRisks' : IDL.Func([], [IDL.Vec(RiskItem)], ['query']),
+  'getUserProfile' : IDL.Func(
+      [IDL.Principal],
+      [IDL.Opt(UserProfile)],
+      ['query'],
+    ),
+  'initializeGRCData' : IDL.Func([], [], []),
   'initializeISMSRepository' : IDL.Func([], [], []),
   'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
+  'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
+  'updateComplianceControl' : IDL.Func(
+      [UpdateComplianceControlInput],
+      [ComplianceControl],
+      [],
+    ),
+  'updateGovernanceItem' : IDL.Func(
+      [UpdateGovernanceItemInput],
+      [GovernanceItem],
+      [],
+    ),
+  'updateRisk' : IDL.Func([UpdateRiskInput], [RiskItem], []),
 });
 
 export const idlInitArgs = [];
@@ -101,26 +323,206 @@ export const idlFactory = ({ IDL }) => {
     'user' : IDL.Null,
     'guest' : IDL.Null,
   });
-  const DocumentStatus = IDL.Variant({
-    'notStarted' : IDL.Null,
-    'completed' : IDL.Null,
-    'approved' : IDL.Null,
-    'inProgress' : IDL.Null,
+  const ControlStatus = IDL.Variant({
+    'notImplemented' : IDL.Null,
+    'partiallyImplemented' : IDL.Null,
+    'fullyImplemented' : IDL.Null,
+    'notApplicable' : IDL.Null,
   });
-  const Document = IDL.Record({
-    'id' : IDL.Nat,
-    'status' : DocumentStatus,
+  const CreateComplianceControlInput = IDL.Record({
+    'status' : ControlStatus,
     'controlName' : IDL.Text,
-    'title' : IDL.Text,
-    'controlNumber' : IDL.Text,
     'owner' : IDL.Text,
+    'description' : IDL.Text,
+    'frameworkId' : IDL.Nat,
+    'controlId' : IDL.Text,
+    'evidence' : IDL.Text,
+  });
+  const GovernanceCategory = IDL.Variant({
+    'actionItem' : IDL.Null,
+    'committee' : IDL.Null,
+    'meeting' : IDL.Null,
+    'policy' : IDL.Null,
+  });
+  const CreateGovernanceItemInput = IDL.Record({
+    'title' : IDL.Text,
+    'owner' : IDL.Text,
+    'approvedBy' : IDL.Text,
+    'reviewDate' : IDL.Text,
+    'description' : IDL.Text,
+    'category' : GovernanceCategory,
+  });
+  const RiskTreatment = IDL.Variant({
+    'accept' : IDL.Null,
+    'avoid' : IDL.Null,
+    'mitigate' : IDL.Null,
+    'transfer' : IDL.Null,
+  });
+  const MaturityLevel = IDL.Variant({
+    'low' : IDL.Null,
+    'high' : IDL.Null,
+    'veryLow' : IDL.Null,
+    'critical' : IDL.Null,
+    'medium' : IDL.Null,
+  });
+  const MitigationControl = IDL.Record({
+    'controlName' : IDL.Text,
+    'maturityLevel' : MaturityLevel,
+    'controlId' : IDL.Text,
+  });
+  const ThreatCategory = IDL.Variant({
+    'nonHostileOutsiders' : IDL.Null,
+    'hostileInsiders' : IDL.Null,
+    'legal' : IDL.Null,
+    'dependencyProblems' : IDL.Null,
+    'hostileOutsiders' : IDL.Null,
+    'environmental' : IDL.Null,
+    'technicalProblems' : IDL.Null,
+    'nonHostileInsiders' : IDL.Null,
+  });
+  const CreateRiskInput = IDL.Record({
+    'treatmentNotes' : IDL.Text,
+    'impact' : IDL.Nat,
+    'title' : IDL.Text,
+    'treatment' : RiskTreatment,
+    'dueDate' : IDL.Text,
+    'description' : IDL.Text,
+    'mitigationControls' : IDL.Vec(MitigationControl),
+    'vulnerability' : IDL.Text,
+    'treatmentOwner' : IDL.Text,
+    'treatmentPlanOwner' : IDL.Text,
+    'threatCategory' : ThreatCategory,
+    'treatmentPlanReviewDate' : IDL.Text,
+    'treatmentPlanDescription' : IDL.Text,
+    'likelihood' : IDL.Nat,
+    'treatmentPlanTargetDate' : IDL.Text,
+  });
+  const UserProfile = IDL.Record({
+    'name' : IDL.Text,
+    'email' : IDL.Text,
+    'department' : IDL.Text,
+  });
+  const ComplianceControl = IDL.Record({
+    'id' : IDL.Nat,
+    'status' : ControlStatus,
+    'controlName' : IDL.Text,
+    'owner' : IDL.Text,
+    'description' : IDL.Text,
+    'frameworkId' : IDL.Nat,
+    'updatedAt' : IDL.Int,
+    'controlId' : IDL.Text,
+    'evidence' : IDL.Text,
+  });
+  const ComplianceFramework = IDL.Record({
+    'id' : IDL.Nat,
+    'name' : IDL.Text,
+    'description' : IDL.Text,
+    'version' : IDL.Text,
+  });
+  const ComplianceScores = IDL.Record({
+    'frameworkName' : IDL.Text,
+    'total' : IDL.Nat,
+    'score' : IDL.Nat,
+    'implemented' : IDL.Nat,
+  });
+  const GovernanceStatus = IDL.Variant({
+    'active' : IDL.Null,
+    'underReview' : IDL.Null,
+    'draft' : IDL.Null,
+    'retired' : IDL.Null,
+  });
+  const GovernanceItem = IDL.Record({
+    'id' : IDL.Nat,
+    'status' : GovernanceStatus,
+    'title' : IDL.Text,
+    'owner' : IDL.Text,
+    'approvedBy' : IDL.Text,
     'createdAt' : IDL.Int,
-    'clauseName' : IDL.Text,
+    'reviewDate' : IDL.Text,
     'description' : IDL.Text,
     'updatedAt' : IDL.Int,
-    'fileId' : IDL.Opt(IDL.Text),
-    'isAnnexA' : IDL.Bool,
-    'clauseNumber' : IDL.Text,
+    'category' : GovernanceCategory,
+  });
+  const GovernanceSummary = IDL.Record({
+    'total' : IDL.Nat,
+    'byStatus' : IDL.Vec(IDL.Tuple(GovernanceStatus, IDL.Nat)),
+    'byCategory' : IDL.Vec(IDL.Tuple(GovernanceCategory, IDL.Nat)),
+  });
+  const RiskStatus = IDL.Variant({
+    'closed' : IDL.Null,
+    'open' : IDL.Null,
+    'inTreatment' : IDL.Null,
+  });
+  const RiskLevel = IDL.Variant({
+    'low' : IDL.Null,
+    'high' : IDL.Null,
+    'critical' : IDL.Null,
+    'medium' : IDL.Null,
+  });
+  const RiskItem = IDL.Record({
+    'id' : IDL.Nat,
+    'treatmentNotes' : IDL.Text,
+    'status' : RiskStatus,
+    'impact' : IDL.Nat,
+    'title' : IDL.Text,
+    'createdAt' : IDL.Int,
+    'treatment' : RiskTreatment,
+    'dueDate' : IDL.Text,
+    'description' : IDL.Text,
+    'mitigationControls' : IDL.Vec(MitigationControl),
+    'residualRiskScore' : IDL.Nat,
+    'updatedAt' : IDL.Int,
+    'vulnerability' : IDL.Text,
+    'treatmentOwner' : IDL.Text,
+    'treatmentPlanOwner' : IDL.Text,
+    'threatCategory' : ThreatCategory,
+    'treatmentPlanReviewDate' : IDL.Text,
+    'inherentRiskScore' : IDL.Nat,
+    'treatmentPlanDescription' : IDL.Text,
+    'likelihood' : IDL.Nat,
+    'riskLevel' : RiskLevel,
+    'treatmentPlanTargetDate' : IDL.Text,
+  });
+  const RiskStats = IDL.Record({
+    'avgResidualScore' : IDL.Nat,
+    'total' : IDL.Nat,
+    'byLevel' : IDL.Vec(IDL.Tuple(RiskLevel, IDL.Nat)),
+    'avgInherentScore' : IDL.Nat,
+    'byStatus' : IDL.Vec(IDL.Tuple(RiskStatus, IDL.Nat)),
+  });
+  const UpdateComplianceControlInput = IDL.Record({
+    'id' : IDL.Nat,
+    'status' : IDL.Opt(ControlStatus),
+    'owner' : IDL.Opt(IDL.Text),
+    'evidence' : IDL.Opt(IDL.Text),
+  });
+  const UpdateGovernanceItemInput = IDL.Record({
+    'id' : IDL.Nat,
+    'status' : IDL.Opt(GovernanceStatus),
+    'title' : IDL.Opt(IDL.Text),
+    'owner' : IDL.Opt(IDL.Text),
+    'approvedBy' : IDL.Opt(IDL.Text),
+    'reviewDate' : IDL.Opt(IDL.Text),
+    'description' : IDL.Opt(IDL.Text),
+    'category' : IDL.Opt(GovernanceCategory),
+  });
+  const UpdateRiskInput = IDL.Record({
+    'id' : IDL.Nat,
+    'treatmentNotes' : IDL.Opt(IDL.Text),
+    'impact' : IDL.Opt(IDL.Nat),
+    'title' : IDL.Opt(IDL.Text),
+    'treatment' : IDL.Opt(RiskTreatment),
+    'dueDate' : IDL.Opt(IDL.Text),
+    'description' : IDL.Opt(IDL.Text),
+    'mitigationControls' : IDL.Opt(IDL.Vec(MitigationControl)),
+    'vulnerability' : IDL.Opt(IDL.Text),
+    'treatmentOwner' : IDL.Opt(IDL.Text),
+    'treatmentPlanOwner' : IDL.Opt(IDL.Text),
+    'threatCategory' : IDL.Opt(ThreatCategory),
+    'treatmentPlanReviewDate' : IDL.Opt(IDL.Text),
+    'treatmentPlanDescription' : IDL.Opt(IDL.Text),
+    'likelihood' : IDL.Opt(IDL.Nat),
+    'treatmentPlanTargetDate' : IDL.Opt(IDL.Text),
   });
   
   return IDL.Service({
@@ -152,11 +554,61 @@ export const idlFactory = ({ IDL }) => {
     '_caffeineStorageUpdateGatewayPrincipals' : IDL.Func([], [], []),
     '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
     'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
+    'createComplianceControl' : IDL.Func(
+        [CreateComplianceControlInput],
+        [IDL.Nat],
+        [],
+      ),
+    'createGovernanceItem' : IDL.Func(
+        [CreateGovernanceItemInput],
+        [IDL.Nat],
+        [],
+      ),
+    'createRisk' : IDL.Func([CreateRiskInput], [IDL.Nat], []),
+    'deleteGovernanceItem' : IDL.Func([IDL.Nat], [], []),
+    'deleteRisk' : IDL.Func([IDL.Nat], [], []),
+    'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
     'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
-    'getDocumentById' : IDL.Func([IDL.Nat], [Document], ['query']),
-    'getDocuments' : IDL.Func([], [IDL.Vec(Document)], ['query']),
+    'getComplianceControls' : IDL.Func(
+        [IDL.Nat],
+        [IDL.Vec(ComplianceControl)],
+        ['query'],
+      ),
+    'getComplianceFrameworks' : IDL.Func(
+        [],
+        [IDL.Vec(ComplianceFramework)],
+        ['query'],
+      ),
+    'getComplianceScores' : IDL.Func(
+        [],
+        [IDL.Vec(ComplianceScores)],
+        ['query'],
+      ),
+    'getGovernanceItems' : IDL.Func([], [IDL.Vec(GovernanceItem)], ['query']),
+    'getGovernanceSummary' : IDL.Func([], [GovernanceSummary], ['query']),
+    'getRiskById' : IDL.Func([IDL.Nat], [IDL.Opt(RiskItem)], ['query']),
+    'getRiskStats' : IDL.Func([], [RiskStats], ['query']),
+    'getRisks' : IDL.Func([], [IDL.Vec(RiskItem)], ['query']),
+    'getUserProfile' : IDL.Func(
+        [IDL.Principal],
+        [IDL.Opt(UserProfile)],
+        ['query'],
+      ),
+    'initializeGRCData' : IDL.Func([], [], []),
     'initializeISMSRepository' : IDL.Func([], [], []),
     'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
+    'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
+    'updateComplianceControl' : IDL.Func(
+        [UpdateComplianceControlInput],
+        [ComplianceControl],
+        [],
+      ),
+    'updateGovernanceItem' : IDL.Func(
+        [UpdateGovernanceItemInput],
+        [GovernanceItem],
+        [],
+      ),
+    'updateRisk' : IDL.Func([UpdateRiskInput], [RiskItem], []),
   });
 };
 

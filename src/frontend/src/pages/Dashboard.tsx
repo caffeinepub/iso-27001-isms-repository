@@ -3,140 +3,178 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
+  AlertTriangle,
+  Building2,
   CheckCircle2,
-  CircleDashed,
-  Clock,
   FileText,
   Shield,
+  ShieldCheck,
   TrendingUp,
 } from "lucide-react";
 import { motion } from "motion/react";
 import { useMemo } from "react";
-import { DocumentStatus } from "../backend";
-import { StatusBadge } from "../components/StatusBadge";
-import { useDocuments } from "../hooks/useQueries";
+import type { Page } from "../App";
+import { RiskLevel, RiskStatus } from "../backend";
+import {
+  useComplianceScores,
+  useDocuments,
+  useGovernanceItems,
+  useRiskStats,
+  useRisks,
+} from "../hooks/useQueries";
 
-const CLAUSES = [
-  { number: "4", name: "Context of the Organization" },
-  { number: "5", name: "Leadership" },
-  { number: "6", name: "Planning" },
-  { number: "7", name: "Support" },
-  { number: "8", name: "Operation" },
-  { number: "9", name: "Performance Evaluation" },
-  { number: "10", name: "Improvement" },
-  { number: "A", name: "Annex A Controls" },
-];
+function riskLevelColor(level: RiskLevel) {
+  switch (level) {
+    case RiskLevel.critical:
+      return "bg-red-500/15 text-red-400 border-red-500/30";
+    case RiskLevel.high:
+      return "bg-orange-500/15 text-orange-400 border-orange-500/30";
+    case RiskLevel.medium:
+      return "bg-yellow-500/15 text-yellow-400 border-yellow-500/30";
+    case RiskLevel.low:
+      return "bg-green-500/15 text-green-400 border-green-500/30";
+  }
+}
 
-function formatDate(ns: bigint): string {
-  const ms = Number(ns / BigInt(1_000_000));
-  return new Date(ms).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
+function govStatusColor(status: string) {
+  switch (status) {
+    case "active":
+      return "bg-green-500/15 text-green-400";
+    case "draft":
+      return "bg-yellow-500/15 text-yellow-400";
+    case "underReview":
+      return "bg-blue-500/15 text-blue-400";
+    case "retired":
+      return "bg-slate-500/15 text-slate-400";
+    default:
+      return "bg-muted text-muted-foreground";
+  }
+}
+
+function govCategoryLabel(cat: string) {
+  switch (cat) {
+    case "policy":
+      return "Policy";
+    case "committee":
+      return "Committee";
+    case "meeting":
+      return "Meeting";
+    case "actionItem":
+      return "Action Item";
+    default:
+      return cat;
+  }
 }
 
 export function Dashboard({
-  onViewDocument,
-}: {
-  onViewDocument: (id: bigint) => void;
-}) {
-  const { data: documents, isLoading } = useDocuments();
+  onNavigate,
+}: { onNavigate: (page: Page) => void }) {
+  const { data: risks, isLoading: risksLoading } = useRisks();
+  const { data: riskStats } = useRiskStats();
+  const { data: complianceScores, isLoading: scoresLoading } =
+    useComplianceScores();
+  const { data: govItems, isLoading: govLoading } = useGovernanceItems();
+  const { data: documents } = useDocuments();
 
-  const stats = useMemo(() => {
-    if (!documents) return null;
-    const total = documents.length;
-    const approved = documents.filter(
-      (d) => d.status === DocumentStatus.approved,
-    ).length;
-    const inProgress = documents.filter(
-      (d) => d.status === DocumentStatus.inProgress,
-    ).length;
-    const notStarted = documents.filter(
-      (d) => d.status === DocumentStatus.notStarted,
-    ).length;
-    const completed = documents.filter(
-      (d) => d.status === DocumentStatus.completed,
-    ).length;
-    return { total, approved, inProgress, notStarted, completed };
-  }, [documents]);
+  const criticalRisks = useMemo(() => {
+    if (!risks) return 0;
+    return risks.filter((r) => r.riskLevel === RiskLevel.critical).length;
+  }, [risks]);
 
-  const clauseProgress = useMemo(() => {
-    if (!documents) return [];
-    return CLAUSES.map((clause) => {
-      const clauseDocs = documents.filter((d) =>
-        clause.number === "A"
-          ? d.isAnnexA
-          : d.clauseNumber.startsWith(`${clause.number}.`) ||
-            d.clauseNumber === clause.number,
-      );
-      const done = clauseDocs.filter(
-        (d) =>
-          d.status === DocumentStatus.approved ||
-          d.status === DocumentStatus.completed,
-      ).length;
-      const pct =
-        clauseDocs.length === 0
-          ? 0
-          : Math.round((done / clauseDocs.length) * 100);
-      return { ...clause, total: clauseDocs.length, done, pct };
-    });
-  }, [documents]);
+  const openRisks = useMemo(() => {
+    if (!risks) return 0;
+    return risks.filter((r) => r.status === RiskStatus.open).length;
+  }, [risks]);
 
-  const recentDocs = useMemo(() => {
-    if (!documents) return [];
-    return [...documents]
+  const overallCompliance = useMemo(() => {
+    if (!complianceScores || complianceScores.length === 0) return 0;
+    const totals = complianceScores.reduce(
+      (acc, f) => acc + Number(f.total),
+      0,
+    );
+    const implemented = complianceScores.reduce(
+      (acc, f) => acc + Number(f.implemented),
+      0,
+    );
+    return totals === 0 ? 0 : Math.round((implemented / totals) * 100);
+  }, [complianceScores]);
+
+  const activePolicies = useMemo(() => {
+    if (!govItems) return 0;
+    return govItems.filter((g) => g.status === ("active" as any)).length;
+  }, [govItems]);
+
+  const recentGovItems = useMemo(() => {
+    if (!govItems) return [];
+    return [...govItems]
       .sort((a, b) => Number(b.updatedAt - a.updatedAt))
       .slice(0, 5);
-  }, [documents]);
+  }, [govItems]);
+
+  const riskLevelCounts = useMemo(() => {
+    if (!riskStats) return [];
+    const order = [
+      RiskLevel.critical,
+      RiskLevel.high,
+      RiskLevel.medium,
+      RiskLevel.low,
+    ];
+    return order.map((level) => {
+      const entry = riskStats.byLevel.find(([l]) => l === level);
+      return { level, count: entry ? Number(entry[1]) : 0 };
+    });
+  }, [riskStats]);
 
   const statCards = [
     {
-      label: "Total Documents",
-      value: stats?.total ?? 0,
-      icon: FileText,
+      label: "Total Risks",
+      value: riskStats ? Number(riskStats.total) : 0,
+      icon: AlertTriangle,
       color: "text-primary",
       bg: "bg-primary/10",
+      page: "riskRegister" as Page,
     },
     {
-      label: "Approved",
-      value: stats?.approved ?? 0,
-      icon: CheckCircle2,
+      label: "Critical Risks",
+      value: criticalRisks,
+      icon: Shield,
+      color: "text-red-400",
+      bg: "bg-red-500/10",
+      page: "riskRegister" as Page,
+    },
+    {
+      label: "Overall Compliance",
+      value: `${overallCompliance}%`,
+      icon: ShieldCheck,
       color: "text-emerald-400",
       bg: "bg-emerald-500/10",
+      page: "compliance" as Page,
     },
     {
-      label: "In Progress",
-      value: stats?.inProgress ?? 0,
-      icon: Clock,
-      color: "text-amber-400",
-      bg: "bg-amber-500/10",
-    },
-    {
-      label: "Not Started",
-      value: stats?.notStarted ?? 0,
-      icon: CircleDashed,
-      color: "text-slate-400",
-      bg: "bg-slate-500/10",
+      label: "Active Policies",
+      value: activePolicies,
+      icon: Building2,
+      color: "text-blue-400",
+      bg: "bg-blue-500/10",
+      page: "governance" as Page,
     },
   ];
 
   return (
-    <div data-ocid="dashboard.page" className="p-3 sm:p-6 max-w-6xl mx-auto">
-      {/* Header */}
+    <div data-ocid="dashboard.page" className="p-3 sm:p-6 max-w-7xl mx-auto">
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
         className="mb-6"
       >
         <div className="flex items-center gap-2 mb-1">
-          <Shield className="w-5 h-5 text-primary" />
+          <ShieldCheck className="w-5 h-5 text-primary" />
           <h2 className="font-display text-2xl font-bold text-foreground">
-            ISMS Dashboard
+            GRC Dashboard
           </h2>
         </div>
         <p className="text-sm text-muted-foreground">
-          ISO 27001:2022 compliance overview and document status
+          Governance, Risk &amp; Compliance — unified posture overview
         </p>
       </motion.div>
 
@@ -151,7 +189,11 @@ export function Dashboard({
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.07 }}
             >
-              <Card className="stat-card-glow bg-card border-border">
+              <Card
+                data-ocid={`dashboard.${card.page}.card`}
+                className="stat-card-glow bg-card border-border cursor-pointer hover:border-primary/30 transition-colors"
+                onClick={() => onNavigate(card.page)}
+              >
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between mb-3">
                     <span className="text-xs text-muted-foreground font-medium">
@@ -163,7 +205,7 @@ export function Dashboard({
                       <Icon className={`w-3.5 h-3.5 ${card.color}`} />
                     </div>
                   </div>
-                  {isLoading ? (
+                  {risksLoading || scoresLoading ? (
                     <Skeleton className="h-8 w-12" />
                   ) : (
                     <p
@@ -179,170 +221,338 @@ export function Dashboard({
         })}
       </div>
 
-      <div className="grid lg:grid-cols-5 gap-6">
-        {/* Clause Progress */}
+      <div className="grid lg:grid-cols-3 gap-6 mb-6">
+        {/* Compliance Scores */}
         <motion.div
           initial={{ opacity: 0, x: -16 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 0.2 }}
-          className="lg:col-span-3"
+          className="lg:col-span-2"
         >
-          <Card className="bg-card border-border">
+          <Card className="bg-card border-border h-full">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-sm font-semibold text-foreground font-display">
-                  Clause Completion
+                  Framework Compliance Scores
                 </CardTitle>
                 <TrendingUp className="w-4 h-4 text-muted-foreground" />
               </div>
             </CardHeader>
-            <CardContent className="space-y-3">
-              {isLoading
-                ? ["c1", "c2", "c3", "c4", "c5", "c6"].map((k) => (
+            <CardContent className="space-y-4">
+              {scoresLoading
+                ? [1, 2, 3, 4, 5, 6].map((k) => (
                     <div key={k} className="space-y-1.5">
                       <Skeleton className="h-3 w-40" />
                       <Skeleton className="h-2 w-full" />
                     </div>
                   ))
-                : clauseProgress.map((clause) => (
-                    <div key={clause.number}>
-                      <div className="flex items-center justify-between mb-1.5">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <span className="text-[11px] font-mono text-primary/70 w-5 shrink-0">
-                            {clause.number === "A" ? "A" : clause.number}
+                : (complianceScores ?? []).map((fw) => {
+                    const pct =
+                      Number(fw.total) === 0
+                        ? 0
+                        : Math.round(
+                            (Number(fw.implemented) / Number(fw.total)) * 100,
+                          );
+                    return (
+                      <div key={fw.frameworkName}>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="text-xs font-medium text-foreground/80">
+                            {fw.frameworkName}
                           </span>
-                          <span className="text-xs text-foreground/80 truncate max-w-[120px] sm:max-w-[180px]">
-                            {clause.name}
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-muted-foreground">
+                              {Number(fw.implemented)}/{Number(fw.total)}
+                            </span>
+                            <span
+                              className={`text-xs font-semibold ${
+                                pct >= 80
+                                  ? "text-emerald-400"
+                                  : pct >= 50
+                                    ? "text-amber-400"
+                                    : "text-red-400"
+                              }`}
+                            >
+                              {pct}%
+                            </span>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <span className="text-xs text-muted-foreground">
-                            {clause.done}/{clause.total}
-                          </span>
-                          <span
-                            className={`text-xs font-semibold ${
-                              clause.pct === 100
-                                ? "text-emerald-400"
-                                : clause.pct > 50
-                                  ? "text-amber-400"
-                                  : "text-muted-foreground"
+                        <div className="relative h-1.5 bg-muted rounded-full overflow-hidden">
+                          <div
+                            className={`absolute left-0 top-0 h-full rounded-full transition-all duration-500 ${
+                              pct >= 80
+                                ? "bg-emerald-400"
+                                : pct >= 50
+                                  ? "bg-amber-400"
+                                  : "bg-red-400"
                             }`}
-                          >
-                            {clause.pct}%
-                          </span>
+                            style={{ width: `${pct}%` }}
+                          />
                         </div>
                       </div>
-                      <div className="relative h-1.5 bg-muted rounded-full overflow-hidden">
-                        <div
-                          className={`absolute left-0 top-0 h-full rounded-full transition-all duration-500 ${
-                            clause.pct === 100
-                              ? "bg-emerald-400"
-                              : clause.pct > 50
-                                ? "bg-amber-400"
-                                : "bg-primary/50"
-                          }`}
-                          style={{ width: `${clause.pct}%` }}
-                        />
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
             </CardContent>
           </Card>
         </motion.div>
 
-        {/* Recent Documents */}
+        {/* Risk Level Distribution */}
         <motion.div
           initial={{ opacity: 0, x: 16 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 0.25 }}
-          className="lg:col-span-2"
         >
           <Card className="bg-card border-border h-full">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-semibold text-foreground font-display">
-                Recent Activity
+                Risk Distribution
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-2 p-4 pt-0">
-              {isLoading ? (
-                ["r1", "r2", "r3", "r4", "r5"].map((k) => (
-                  <Skeleton key={k} className="h-14 w-full" />
-                ))
-              ) : recentDocs.length === 0 ? (
-                <div className="text-center py-8">
-                  <FileText className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
-                  <p className="text-xs text-muted-foreground">
-                    No documents yet
-                  </p>
-                </div>
-              ) : (
-                recentDocs.map((doc) => (
-                  <button
-                    type="button"
-                    key={doc.id.toString()}
-                    onClick={() => onViewDocument(doc.id)}
-                    className="w-full text-left p-2.5 rounded-lg hover:bg-muted/40 transition-colors group"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="text-xs font-medium text-foreground truncate group-hover:text-primary transition-colors">
-                          {doc.title}
-                        </p>
-                        <p className="text-[11px] text-muted-foreground mt-0.5">
-                          {doc.clauseNumber} · {formatDate(doc.updatedAt)}
-                        </p>
+            <CardContent className="space-y-3">
+              {risksLoading
+                ? [1, 2, 3, 4].map((k) => (
+                    <Skeleton key={k} className="h-10 w-full" />
+                  ))
+                : riskLevelCounts.map(({ level, count }) => (
+                    <div
+                      key={level}
+                      className="flex items-center justify-between p-2.5 rounded-lg bg-muted/30"
+                    >
+                      <div className="flex items-center gap-2">
+                        <div
+                          className={`w-2.5 h-2.5 rounded-full ${
+                            level === RiskLevel.critical
+                              ? "bg-red-400"
+                              : level === RiskLevel.high
+                                ? "bg-orange-400"
+                                : level === RiskLevel.medium
+                                  ? "bg-yellow-400"
+                                  : "bg-green-400"
+                          }`}
+                        />
+                        <span className="text-xs text-foreground capitalize">
+                          {level}
+                        </span>
                       </div>
-                      <StatusBadge status={doc.status} />
+                      <Badge className={`text-xs ${riskLevelColor(level)}`}>
+                        {count}
+                      </Badge>
                     </div>
-                  </button>
-                ))
+                  ))}
+
+              {!risksLoading && riskStats && (
+                <div className="pt-2 border-t border-border">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">
+                      Open Risks
+                    </span>
+                    <span className="text-xs font-semibold text-foreground">
+                      {openRisks}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between mt-1">
+                    <span className="text-xs text-muted-foreground">
+                      Avg Residual Score
+                    </span>
+                    <span className="text-xs font-semibold text-foreground">
+                      {Number(riskStats.avgResidualScore)}
+                    </span>
+                  </div>
+                </div>
               )}
             </CardContent>
           </Card>
         </motion.div>
       </div>
 
-      {/* Overall compliance meter */}
-      {!isLoading && stats && stats.total > 0 && (
+      {/* Recent Governance + Documents */}
+      <div className="grid lg:grid-cols-2 gap-6">
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+        >
+          <Card className="bg-card border-border">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-semibold text-foreground font-display">
+                  Recent Governance
+                </CardTitle>
+                <button
+                  type="button"
+                  data-ocid="dashboard.governance.link"
+                  onClick={() => onNavigate("governance")}
+                  className="text-xs text-primary hover:underline"
+                >
+                  View all
+                </button>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-2 p-4 pt-0">
+              {govLoading ? (
+                [1, 2, 3].map((k) => (
+                  <Skeleton key={k} className="h-14 w-full" />
+                ))
+              ) : recentGovItems.length === 0 ? (
+                <div
+                  data-ocid="governance.empty_state"
+                  className="text-center py-8"
+                >
+                  <Building2 className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
+                  <p className="text-xs text-muted-foreground">
+                    No governance items yet
+                  </p>
+                </div>
+              ) : (
+                recentGovItems.map((item) => (
+                  <div
+                    key={item.id.toString()}
+                    className="flex items-start justify-between gap-2 p-2.5 rounded-lg hover:bg-muted/30 transition-colors"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-xs font-medium text-foreground truncate">
+                        {item.title}
+                      </p>
+                      <p className="text-[11px] text-muted-foreground mt-0.5">
+                        {govCategoryLabel(item.category as string)} ·{" "}
+                        {item.owner}
+                      </p>
+                    </div>
+                    <Badge
+                      className={`text-[10px] shrink-0 ${govStatusColor(item.status as string)}`}
+                    >
+                      {(item.status as string).replace(/([A-Z])/g, " $1")}
+                    </Badge>
+                  </div>
+                ))
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
+
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.35 }}
-          className="mt-6"
         >
           <Card className="bg-card border-border">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between mb-2">
-                <div>
-                  <p className="text-sm font-semibold text-foreground font-display">
-                    Overall Compliance
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    Documents approved or completed
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="text-2xl font-display font-bold text-primary">
-                    {Math.round(
-                      ((stats.approved + stats.completed) / stats.total) * 100,
-                    )}
-                    %
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {stats.approved + stats.completed} / {stats.total}
-                  </p>
-                </div>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-semibold text-foreground font-display">
+                  Document Compliance (ISO 27001)
+                </CardTitle>
+                <button
+                  type="button"
+                  data-ocid="dashboard.documents.link"
+                  onClick={() => onNavigate("documents")}
+                  className="text-xs text-primary hover:underline"
+                >
+                  View all
+                </button>
               </div>
-              <Progress
-                value={Math.round(
-                  ((stats.approved + stats.completed) / stats.total) * 100,
-                )}
-                className="h-2"
-              />
+            </CardHeader>
+            <CardContent className="p-4 pt-0">
+              {!documents ? (
+                <Skeleton className="h-20 w-full" />
+              ) : (
+                <>
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-xs text-muted-foreground">
+                      {
+                        documents.filter(
+                          (d) =>
+                            d.status === "approved" || d.status === "completed",
+                        ).length
+                      }{" "}
+                      / {documents.length} complete
+                    </p>
+                    <p className="text-lg font-display font-bold text-primary">
+                      {documents.length === 0
+                        ? 0
+                        : Math.round(
+                            (documents.filter(
+                              (d) =>
+                                d.status === "approved" ||
+                                d.status === "completed",
+                            ).length /
+                              documents.length) *
+                              100,
+                          )}
+                      %
+                    </p>
+                  </div>
+                  <Progress
+                    value={
+                      documents.length === 0
+                        ? 0
+                        : Math.round(
+                            (documents.filter(
+                              (d) =>
+                                d.status === "approved" ||
+                                d.status === "completed",
+                            ).length /
+                              documents.length) *
+                              100,
+                          )
+                    }
+                    className="h-2 mb-4"
+                  />
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      {
+                        label: "Total Docs",
+                        value: documents.length,
+                        icon: FileText,
+                        color: "text-primary",
+                      },
+                      {
+                        label: "Approved",
+                        value: documents.filter((d) => d.status === "approved")
+                          .length,
+                        icon: CheckCircle2,
+                        color: "text-emerald-400",
+                      },
+                    ].map((s) => {
+                      const Icon = s.icon;
+                      return (
+                        <div
+                          key={s.label}
+                          className="p-3 rounded-lg bg-muted/30"
+                        >
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <Icon className={`w-3.5 h-3.5 ${s.color}`} />
+                            <span className="text-[11px] text-muted-foreground">
+                              {s.label}
+                            </span>
+                          </div>
+                          <p
+                            className={`text-xl font-display font-bold ${s.color}`}
+                          >
+                            {s.value}
+                          </p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
             </CardContent>
           </Card>
         </motion.div>
-      )}
+      </div>
+
+      <footer className="mt-8 py-4 border-t border-border text-center">
+        <p className="text-xs text-muted-foreground">
+          © {new Date().getFullYear()}. Built with love using{" "}
+          <a
+            href={`https://caffeine.ai?utm_source=caffeine-footer&utm_medium=referral&utm_content=${encodeURIComponent(window.location.hostname)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary hover:underline"
+          >
+            caffeine.ai
+          </a>
+        </p>
+      </footer>
     </div>
   );
 }

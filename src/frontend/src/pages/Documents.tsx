@@ -21,10 +21,10 @@ import {
 import { FileText, Filter, Search } from "lucide-react";
 import { motion } from "motion/react";
 import { useMemo, useState } from "react";
-import { type Document, DocumentStatus } from "../backend";
 import { DocumentDetailSheet } from "../components/DocumentDetailSheet";
 import { StatusBadge } from "../components/StatusBadge";
 import { useDocuments, useIsAdmin } from "../hooks/useQueries";
+import { type Document, DocumentStatus } from "../types/document";
 
 function formatDate(ns: bigint): string {
   const ms = Number(ns / BigInt(1_000_000));

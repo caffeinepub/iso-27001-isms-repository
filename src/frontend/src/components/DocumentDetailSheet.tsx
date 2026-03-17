@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
-import type { Document } from "../backend";
+import type { Document } from "../types/document";
 import { StatusBadge } from "./StatusBadge";
 
 interface DocumentDetailSheetProps {

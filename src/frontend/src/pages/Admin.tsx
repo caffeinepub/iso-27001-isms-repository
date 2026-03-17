@@ -14,6 +14,8 @@ import { Separator } from "@/components/ui/separator";
 import { Principal } from "@icp-sdk/core/principal";
 import {
   AlertTriangle,
+  CheckCircle2,
+  Database,
   Loader2,
   Settings,
   Shield,
@@ -24,12 +26,17 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { UserRole } from "../backend";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
-import { useAssignRole, useCallerRole } from "../hooks/useQueries";
+import {
+  useAssignRole,
+  useCallerRole,
+  useInitializeGRCData,
+} from "../hooks/useQueries";
 
 export function Admin() {
   const { identity } = useInternetIdentity();
   const { data: currentRole } = useCallerRole();
   const assignRole = useAssignRole();
+  const initGRC = useInitializeGRCData();
 
   const [principalInput, setPrincipalInput] = useState("");
   const [selectedRole, setSelectedRole] = useState<UserRole>(UserRole.user);
@@ -112,6 +119,64 @@ export function Admin() {
                   : "Guest"}
               </Badge>
             </div>
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      {/* Initialize GRC Data */}
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.13 }}
+        className="mb-5"
+      >
+        <Card className="bg-card border-border">
+          <CardHeader className="pb-3">
+            <div className="flex items-center gap-2">
+              <Database className="w-4 h-4 text-primary" />
+              <CardTitle className="text-sm font-semibold font-display">
+                Initialize Sample Data
+              </CardTitle>
+            </div>
+          </CardHeader>
+          <Separator className="bg-border" />
+          <CardContent className="pt-4 space-y-4">
+            <p className="text-xs text-muted-foreground">
+              Load all compliance frameworks, risk register entries, and
+              governance items. This populates ISO 27001, SOC 2, GDPR, PCI DSS,
+              NIST CSF, and ISO 9001 with sample controls and data.
+            </p>
+            {initGRC.isSuccess && (
+              <div
+                data-ocid="admin.init_grc.success_state"
+                className="flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/30 rounded-lg px-3 py-2.5"
+              >
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                <p className="text-xs text-emerald-400">
+                  GRC sample data initialized successfully
+                </p>
+              </div>
+            )}
+            <Button
+              data-ocid="admin.init_grc.primary_button"
+              type="button"
+              size="sm"
+              className="w-full bg-primary/15 text-primary border border-primary/30 hover:bg-primary/25"
+              onClick={() => initGRC.mutate()}
+              disabled={initGRC.isPending}
+            >
+              {initGRC.isPending ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" />
+                  Initializing...
+                </>
+              ) : (
+                <>
+                  <Database className="w-3.5 h-3.5 mr-2" />
+                  Initialize GRC Data
+                </>
+              )}
+            </Button>
           </CardContent>
         </Card>
       </motion.div>

@@ -1,4 +1,4 @@
-import { DocumentStatus } from "../backend";
+import { DocumentStatus } from "../types/document";
 
 const STATUS_CONFIG = {
   [DocumentStatus.notStarted]: {

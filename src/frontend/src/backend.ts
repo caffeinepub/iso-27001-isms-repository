@@ -89,37 +89,217 @@ export class ExternalBlob {
         return this;
     }
 }
-export interface Document {
+export interface UpdateRiskInput {
     id: bigint;
-    status: DocumentStatus;
-    controlName: string;
+    treatmentNotes?: string;
+    impact?: bigint;
+    title?: string;
+    treatment?: RiskTreatment;
+    dueDate?: string;
+    description?: string;
+    mitigationControls?: Array<MitigationControl>;
+    vulnerability?: string;
+    treatmentOwner?: string;
+    treatmentPlanOwner?: string;
+    threatCategory?: ThreatCategory;
+    treatmentPlanReviewDate?: string;
+    treatmentPlanDescription?: string;
+    likelihood?: bigint;
+    treatmentPlanTargetDate?: string;
+}
+export interface RiskItem {
+    id: bigint;
+    treatmentNotes: string;
+    status: RiskStatus;
+    impact: bigint;
     title: string;
-    controlNumber: string;
-    owner: string;
     createdAt: bigint;
-    clauseName: string;
+    treatment: RiskTreatment;
+    dueDate: string;
+    description: string;
+    mitigationControls: Array<MitigationControl>;
+    residualRiskScore: bigint;
+    updatedAt: bigint;
+    vulnerability: string;
+    treatmentOwner: string;
+    treatmentPlanOwner: string;
+    threatCategory: ThreatCategory;
+    treatmentPlanReviewDate: string;
+    inherentRiskScore: bigint;
+    treatmentPlanDescription: string;
+    likelihood: bigint;
+    riskLevel: RiskLevel;
+    treatmentPlanTargetDate: string;
+}
+export interface GovernanceItem {
+    id: bigint;
+    status: GovernanceStatus;
+    title: string;
+    owner: string;
+    approvedBy: string;
+    createdAt: bigint;
+    reviewDate: string;
     description: string;
     updatedAt: bigint;
-    fileId?: string;
-    isAnnexA: boolean;
-    clauseNumber: string;
+    category: GovernanceCategory;
+}
+export interface _CaffeineStorageRefillInformation {
+    proposed_top_up_amount?: bigint;
+}
+export interface MitigationControl {
+    controlName: string;
+    maturityLevel: MaturityLevel;
+    controlId: string;
+}
+export interface ComplianceScores {
+    frameworkName: string;
+    total: bigint;
+    score: bigint;
+    implemented: bigint;
 }
 export interface _CaffeineStorageCreateCertificateResult {
     method: string;
     blob_hash: string;
 }
+export interface CreateComplianceControlInput {
+    status: ControlStatus;
+    controlName: string;
+    owner: string;
+    description: string;
+    frameworkId: bigint;
+    controlId: string;
+    evidence: string;
+}
+export interface UpdateComplianceControlInput {
+    id: bigint;
+    status?: ControlStatus;
+    owner?: string;
+    evidence?: string;
+}
+export interface UpdateGovernanceItemInput {
+    id: bigint;
+    status?: GovernanceStatus;
+    title?: string;
+    owner?: string;
+    approvedBy?: string;
+    reviewDate?: string;
+    description?: string;
+    category?: GovernanceCategory;
+}
+export interface GovernanceSummary {
+    total: bigint;
+    byStatus: Array<[GovernanceStatus, bigint]>;
+    byCategory: Array<[GovernanceCategory, bigint]>;
+}
+export interface CreateGovernanceItemInput {
+    title: string;
+    owner: string;
+    approvedBy: string;
+    reviewDate: string;
+    description: string;
+    category: GovernanceCategory;
+}
+export interface ComplianceControl {
+    id: bigint;
+    status: ControlStatus;
+    controlName: string;
+    owner: string;
+    description: string;
+    frameworkId: bigint;
+    updatedAt: bigint;
+    controlId: string;
+    evidence: string;
+}
+export interface RiskStats {
+    avgResidualScore: bigint;
+    total: bigint;
+    byLevel: Array<[RiskLevel, bigint]>;
+    avgInherentScore: bigint;
+    byStatus: Array<[RiskStatus, bigint]>;
+}
+export interface CreateRiskInput {
+    treatmentNotes: string;
+    impact: bigint;
+    title: string;
+    treatment: RiskTreatment;
+    dueDate: string;
+    description: string;
+    mitigationControls: Array<MitigationControl>;
+    vulnerability: string;
+    treatmentOwner: string;
+    treatmentPlanOwner: string;
+    threatCategory: ThreatCategory;
+    treatmentPlanReviewDate: string;
+    treatmentPlanDescription: string;
+    likelihood: bigint;
+    treatmentPlanTargetDate: string;
+}
+export interface ComplianceFramework {
+    id: bigint;
+    name: string;
+    description: string;
+    version: string;
+}
 export interface _CaffeineStorageRefillResult {
     success?: boolean;
     topped_up_amount?: bigint;
 }
-export interface _CaffeineStorageRefillInformation {
-    proposed_top_up_amount?: bigint;
+export interface UserProfile {
+    name: string;
+    email: string;
+    department: string;
 }
-export enum DocumentStatus {
-    notStarted = "notStarted",
-    completed = "completed",
-    approved = "approved",
-    inProgress = "inProgress"
+export enum ControlStatus {
+    notImplemented = "notImplemented",
+    partiallyImplemented = "partiallyImplemented",
+    fullyImplemented = "fullyImplemented",
+    notApplicable = "notApplicable"
+}
+export enum GovernanceCategory {
+    actionItem = "actionItem",
+    committee = "committee",
+    meeting = "meeting",
+    policy = "policy"
+}
+export enum GovernanceStatus {
+    active = "active",
+    underReview = "underReview",
+    draft = "draft",
+    retired = "retired"
+}
+export enum MaturityLevel {
+    low = "low",
+    high = "high",
+    veryLow = "veryLow",
+    critical = "critical",
+    medium = "medium"
+}
+export enum RiskLevel {
+    low = "low",
+    high = "high",
+    critical = "critical",
+    medium = "medium"
+}
+export enum RiskStatus {
+    closed = "closed",
+    open = "open",
+    inTreatment = "inTreatment"
+}
+export enum RiskTreatment {
+    accept = "accept",
+    avoid = "avoid",
+    mitigate = "mitigate",
+    transfer = "transfer"
+}
+export enum ThreatCategory {
+    nonHostileOutsiders = "nonHostileOutsiders",
+    hostileInsiders = "hostileInsiders",
+    legal = "legal",
+    dependencyProblems = "dependencyProblems",
+    hostileOutsiders = "hostileOutsiders",
+    environmental = "environmental",
+    technicalProblems = "technicalProblems",
+    nonHostileInsiders = "nonHostileInsiders"
 }
 export enum UserRole {
     admin = "admin",
@@ -135,13 +315,31 @@ export interface backendInterface {
     _caffeineStorageUpdateGatewayPrincipals(): Promise<void>;
     _initializeAccessControlWithSecret(userSecret: string): Promise<void>;
     assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
+    createComplianceControl(input: CreateComplianceControlInput): Promise<bigint>;
+    createGovernanceItem(input: CreateGovernanceItemInput): Promise<bigint>;
+    createRisk(input: CreateRiskInput): Promise<bigint>;
+    deleteGovernanceItem(id: bigint): Promise<void>;
+    deleteRisk(id: bigint): Promise<void>;
+    getCallerUserProfile(): Promise<UserProfile | null>;
     getCallerUserRole(): Promise<UserRole>;
-    getDocumentById(id: bigint): Promise<Document>;
-    getDocuments(): Promise<Array<Document>>;
+    getComplianceControls(frameworkId: bigint): Promise<Array<ComplianceControl>>;
+    getComplianceFrameworks(): Promise<Array<ComplianceFramework>>;
+    getComplianceScores(): Promise<Array<ComplianceScores>>;
+    getGovernanceItems(): Promise<Array<GovernanceItem>>;
+    getGovernanceSummary(): Promise<GovernanceSummary>;
+    getRiskById(id: bigint): Promise<RiskItem | null>;
+    getRiskStats(): Promise<RiskStats>;
+    getRisks(): Promise<Array<RiskItem>>;
+    getUserProfile(user: Principal): Promise<UserProfile | null>;
+    initializeGRCData(): Promise<void>;
     initializeISMSRepository(): Promise<void>;
     isCallerAdmin(): Promise<boolean>;
+    saveCallerUserProfile(profile: UserProfile): Promise<void>;
+    updateComplianceControl(input: UpdateComplianceControlInput): Promise<ComplianceControl>;
+    updateGovernanceItem(input: UpdateGovernanceItemInput): Promise<GovernanceItem>;
+    updateRisk(input: UpdateRiskInput): Promise<RiskItem>;
 }
-import type { Document as _Document, DocumentStatus as _DocumentStatus, UserRole as _UserRole, _CaffeineStorageRefillInformation as __CaffeineStorageRefillInformation, _CaffeineStorageRefillResult as __CaffeineStorageRefillResult } from "./declarations/backend.did.d.ts";
+import type { ComplianceControl as _ComplianceControl, ControlStatus as _ControlStatus, CreateComplianceControlInput as _CreateComplianceControlInput, CreateGovernanceItemInput as _CreateGovernanceItemInput, CreateRiskInput as _CreateRiskInput, GovernanceCategory as _GovernanceCategory, GovernanceItem as _GovernanceItem, GovernanceStatus as _GovernanceStatus, GovernanceSummary as _GovernanceSummary, MaturityLevel as _MaturityLevel, MitigationControl as _MitigationControl, RiskItem as _RiskItem, RiskLevel as _RiskLevel, RiskStats as _RiskStats, RiskStatus as _RiskStatus, RiskTreatment as _RiskTreatment, ThreatCategory as _ThreatCategory, UpdateComplianceControlInput as _UpdateComplianceControlInput, UpdateGovernanceItemInput as _UpdateGovernanceItemInput, UpdateRiskInput as _UpdateRiskInput, UserProfile as _UserProfile, UserRole as _UserRole, _CaffeineStorageRefillInformation as __CaffeineStorageRefillInformation, _CaffeineStorageRefillResult as __CaffeineStorageRefillResult } from "./declarations/backend.did.d.ts";
 export class Backend implements backendInterface {
     constructor(private actor: ActorSubclass<_SERVICE>, private _uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, private _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, private processError?: (error: unknown) => never){}
     async _caffeineStorageBlobIsLive(arg0: Uint8Array): Promise<boolean> {
@@ -256,46 +454,242 @@ export class Backend implements backendInterface {
             return result;
         }
     }
+    async createComplianceControl(arg0: CreateComplianceControlInput): Promise<bigint> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.createComplianceControl(to_candid_CreateComplianceControlInput_n10(this._uploadFile, this._downloadFile, arg0));
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.createComplianceControl(to_candid_CreateComplianceControlInput_n10(this._uploadFile, this._downloadFile, arg0));
+            return result;
+        }
+    }
+    async createGovernanceItem(arg0: CreateGovernanceItemInput): Promise<bigint> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.createGovernanceItem(to_candid_CreateGovernanceItemInput_n14(this._uploadFile, this._downloadFile, arg0));
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.createGovernanceItem(to_candid_CreateGovernanceItemInput_n14(this._uploadFile, this._downloadFile, arg0));
+            return result;
+        }
+    }
+    async createRisk(arg0: CreateRiskInput): Promise<bigint> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.createRisk(to_candid_CreateRiskInput_n18(this._uploadFile, this._downloadFile, arg0));
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.createRisk(to_candid_CreateRiskInput_n18(this._uploadFile, this._downloadFile, arg0));
+            return result;
+        }
+    }
+    async deleteGovernanceItem(arg0: bigint): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.deleteGovernanceItem(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.deleteGovernanceItem(arg0);
+            return result;
+        }
+    }
+    async deleteRisk(arg0: bigint): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.deleteRisk(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.deleteRisk(arg0);
+            return result;
+        }
+    }
+    async getCallerUserProfile(): Promise<UserProfile | null> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getCallerUserProfile();
+                return from_candid_opt_n29(this._uploadFile, this._downloadFile, result);
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getCallerUserProfile();
+            return from_candid_opt_n29(this._uploadFile, this._downloadFile, result);
+        }
+    }
     async getCallerUserRole(): Promise<UserRole> {
         if (this.processError) {
             try {
                 const result = await this.actor.getCallerUserRole();
-                return from_candid_UserRole_n10(this._uploadFile, this._downloadFile, result);
+                return from_candid_UserRole_n30(this._uploadFile, this._downloadFile, result);
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
             const result = await this.actor.getCallerUserRole();
-            return from_candid_UserRole_n10(this._uploadFile, this._downloadFile, result);
+            return from_candid_UserRole_n30(this._uploadFile, this._downloadFile, result);
         }
     }
-    async getDocumentById(arg0: bigint): Promise<Document> {
+    async getComplianceControls(arg0: bigint): Promise<Array<ComplianceControl>> {
         if (this.processError) {
             try {
-                const result = await this.actor.getDocumentById(arg0);
-                return from_candid_Document_n12(this._uploadFile, this._downloadFile, result);
+                const result = await this.actor.getComplianceControls(arg0);
+                return from_candid_vec_n32(this._uploadFile, this._downloadFile, result);
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
-            const result = await this.actor.getDocumentById(arg0);
-            return from_candid_Document_n12(this._uploadFile, this._downloadFile, result);
+            const result = await this.actor.getComplianceControls(arg0);
+            return from_candid_vec_n32(this._uploadFile, this._downloadFile, result);
         }
     }
-    async getDocuments(): Promise<Array<Document>> {
+    async getComplianceFrameworks(): Promise<Array<ComplianceFramework>> {
         if (this.processError) {
             try {
-                const result = await this.actor.getDocuments();
-                return from_candid_vec_n17(this._uploadFile, this._downloadFile, result);
+                const result = await this.actor.getComplianceFrameworks();
+                return result;
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
-            const result = await this.actor.getDocuments();
-            return from_candid_vec_n17(this._uploadFile, this._downloadFile, result);
+            const result = await this.actor.getComplianceFrameworks();
+            return result;
+        }
+    }
+    async getComplianceScores(): Promise<Array<ComplianceScores>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getComplianceScores();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getComplianceScores();
+            return result;
+        }
+    }
+    async getGovernanceItems(): Promise<Array<GovernanceItem>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getGovernanceItems();
+                return from_candid_vec_n37(this._uploadFile, this._downloadFile, result);
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getGovernanceItems();
+            return from_candid_vec_n37(this._uploadFile, this._downloadFile, result);
+        }
+    }
+    async getGovernanceSummary(): Promise<GovernanceSummary> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getGovernanceSummary();
+                return from_candid_GovernanceSummary_n44(this._uploadFile, this._downloadFile, result);
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getGovernanceSummary();
+            return from_candid_GovernanceSummary_n44(this._uploadFile, this._downloadFile, result);
+        }
+    }
+    async getRiskById(arg0: bigint): Promise<RiskItem | null> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getRiskById(arg0);
+                return from_candid_opt_n50(this._uploadFile, this._downloadFile, result);
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getRiskById(arg0);
+            return from_candid_opt_n50(this._uploadFile, this._downloadFile, result);
+        }
+    }
+    async getRiskStats(): Promise<RiskStats> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getRiskStats();
+                return from_candid_RiskStats_n66(this._uploadFile, this._downloadFile, result);
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getRiskStats();
+            return from_candid_RiskStats_n66(this._uploadFile, this._downloadFile, result);
+        }
+    }
+    async getRisks(): Promise<Array<RiskItem>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getRisks();
+                return from_candid_vec_n72(this._uploadFile, this._downloadFile, result);
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getRisks();
+            return from_candid_vec_n72(this._uploadFile, this._downloadFile, result);
+        }
+    }
+    async getUserProfile(arg0: Principal): Promise<UserProfile | null> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getUserProfile(arg0);
+                return from_candid_opt_n29(this._uploadFile, this._downloadFile, result);
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getUserProfile(arg0);
+            return from_candid_opt_n29(this._uploadFile, this._downloadFile, result);
+        }
+    }
+    async initializeGRCData(): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.initializeGRCData();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.initializeGRCData();
+            return result;
         }
     }
     async initializeISMSRepository(): Promise<void> {
@@ -326,21 +720,116 @@ export class Backend implements backendInterface {
             return result;
         }
     }
+    async saveCallerUserProfile(arg0: UserProfile): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.saveCallerUserProfile(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.saveCallerUserProfile(arg0);
+            return result;
+        }
+    }
+    async updateComplianceControl(arg0: UpdateComplianceControlInput): Promise<ComplianceControl> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.updateComplianceControl(to_candid_UpdateComplianceControlInput_n73(this._uploadFile, this._downloadFile, arg0));
+                return from_candid_ComplianceControl_n33(this._uploadFile, this._downloadFile, result);
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.updateComplianceControl(to_candid_UpdateComplianceControlInput_n73(this._uploadFile, this._downloadFile, arg0));
+            return from_candid_ComplianceControl_n33(this._uploadFile, this._downloadFile, result);
+        }
+    }
+    async updateGovernanceItem(arg0: UpdateGovernanceItemInput): Promise<GovernanceItem> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.updateGovernanceItem(to_candid_UpdateGovernanceItemInput_n75(this._uploadFile, this._downloadFile, arg0));
+                return from_candid_GovernanceItem_n38(this._uploadFile, this._downloadFile, result);
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.updateGovernanceItem(to_candid_UpdateGovernanceItemInput_n75(this._uploadFile, this._downloadFile, arg0));
+            return from_candid_GovernanceItem_n38(this._uploadFile, this._downloadFile, result);
+        }
+    }
+    async updateRisk(arg0: UpdateRiskInput): Promise<RiskItem> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.updateRisk(to_candid_UpdateRiskInput_n79(this._uploadFile, this._downloadFile, arg0));
+                return from_candid_RiskItem_n51(this._uploadFile, this._downloadFile, result);
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.updateRisk(to_candid_UpdateRiskInput_n79(this._uploadFile, this._downloadFile, arg0));
+            return from_candid_RiskItem_n51(this._uploadFile, this._downloadFile, result);
+        }
+    }
 }
-function from_candid_DocumentStatus_n14(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _DocumentStatus): DocumentStatus {
-    return from_candid_variant_n15(_uploadFile, _downloadFile, value);
+function from_candid_ComplianceControl_n33(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _ComplianceControl): ComplianceControl {
+    return from_candid_record_n34(_uploadFile, _downloadFile, value);
 }
-function from_candid_Document_n12(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _Document): Document {
-    return from_candid_record_n13(_uploadFile, _downloadFile, value);
+function from_candid_ControlStatus_n35(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _ControlStatus): ControlStatus {
+    return from_candid_variant_n36(_uploadFile, _downloadFile, value);
 }
-function from_candid_UserRole_n10(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _UserRole): UserRole {
-    return from_candid_variant_n11(_uploadFile, _downloadFile, value);
+function from_candid_GovernanceCategory_n42(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _GovernanceCategory): GovernanceCategory {
+    return from_candid_variant_n43(_uploadFile, _downloadFile, value);
+}
+function from_candid_GovernanceItem_n38(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _GovernanceItem): GovernanceItem {
+    return from_candid_record_n39(_uploadFile, _downloadFile, value);
+}
+function from_candid_GovernanceStatus_n40(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _GovernanceStatus): GovernanceStatus {
+    return from_candid_variant_n41(_uploadFile, _downloadFile, value);
+}
+function from_candid_GovernanceSummary_n44(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _GovernanceSummary): GovernanceSummary {
+    return from_candid_record_n45(_uploadFile, _downloadFile, value);
+}
+function from_candid_MaturityLevel_n60(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _MaturityLevel): MaturityLevel {
+    return from_candid_variant_n61(_uploadFile, _downloadFile, value);
+}
+function from_candid_MitigationControl_n58(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _MitigationControl): MitigationControl {
+    return from_candid_record_n59(_uploadFile, _downloadFile, value);
+}
+function from_candid_RiskItem_n51(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _RiskItem): RiskItem {
+    return from_candid_record_n52(_uploadFile, _downloadFile, value);
+}
+function from_candid_RiskLevel_n64(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _RiskLevel): RiskLevel {
+    return from_candid_variant_n65(_uploadFile, _downloadFile, value);
+}
+function from_candid_RiskStats_n66(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _RiskStats): RiskStats {
+    return from_candid_record_n67(_uploadFile, _downloadFile, value);
+}
+function from_candid_RiskStatus_n53(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _RiskStatus): RiskStatus {
+    return from_candid_variant_n54(_uploadFile, _downloadFile, value);
+}
+function from_candid_RiskTreatment_n55(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _RiskTreatment): RiskTreatment {
+    return from_candid_variant_n56(_uploadFile, _downloadFile, value);
+}
+function from_candid_ThreatCategory_n62(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _ThreatCategory): ThreatCategory {
+    return from_candid_variant_n63(_uploadFile, _downloadFile, value);
+}
+function from_candid_UserRole_n30(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _UserRole): UserRole {
+    return from_candid_variant_n31(_uploadFile, _downloadFile, value);
 }
 function from_candid__CaffeineStorageRefillResult_n4(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: __CaffeineStorageRefillResult): _CaffeineStorageRefillResult {
     return from_candid_record_n5(_uploadFile, _downloadFile, value);
 }
-function from_candid_opt_n16(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [string]): string | null {
+function from_candid_opt_n29(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [_UserProfile]): UserProfile | null {
     return value.length === 0 ? null : value[0];
+}
+function from_candid_opt_n50(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [_RiskItem]): RiskItem | null {
+    return value.length === 0 ? null : from_candid_RiskItem_n51(_uploadFile, _downloadFile, value[0]);
 }
 function from_candid_opt_n6(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [boolean]): boolean | null {
     return value.length === 0 ? null : value[0];
@@ -348,49 +837,88 @@ function from_candid_opt_n6(_uploadFile: (file: ExternalBlob) => Promise<Uint8Ar
 function from_candid_opt_n7(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [bigint]): bigint | null {
     return value.length === 0 ? null : value[0];
 }
-function from_candid_record_n13(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
+function from_candid_record_n34(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
     id: bigint;
-    status: _DocumentStatus;
+    status: _ControlStatus;
     controlName: string;
-    title: string;
-    controlNumber: string;
     owner: string;
-    createdAt: bigint;
-    clauseName: string;
     description: string;
+    frameworkId: bigint;
     updatedAt: bigint;
-    fileId: [] | [string];
-    isAnnexA: boolean;
-    clauseNumber: string;
+    controlId: string;
+    evidence: string;
 }): {
     id: bigint;
-    status: DocumentStatus;
+    status: ControlStatus;
     controlName: string;
-    title: string;
-    controlNumber: string;
     owner: string;
-    createdAt: bigint;
-    clauseName: string;
     description: string;
+    frameworkId: bigint;
     updatedAt: bigint;
-    fileId?: string;
-    isAnnexA: boolean;
-    clauseNumber: string;
+    controlId: string;
+    evidence: string;
 } {
     return {
         id: value.id,
-        status: from_candid_DocumentStatus_n14(_uploadFile, _downloadFile, value.status),
+        status: from_candid_ControlStatus_n35(_uploadFile, _downloadFile, value.status),
         controlName: value.controlName,
-        title: value.title,
-        controlNumber: value.controlNumber,
         owner: value.owner,
+        description: value.description,
+        frameworkId: value.frameworkId,
+        updatedAt: value.updatedAt,
+        controlId: value.controlId,
+        evidence: value.evidence
+    };
+}
+function from_candid_record_n39(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
+    id: bigint;
+    status: _GovernanceStatus;
+    title: string;
+    owner: string;
+    approvedBy: string;
+    createdAt: bigint;
+    reviewDate: string;
+    description: string;
+    updatedAt: bigint;
+    category: _GovernanceCategory;
+}): {
+    id: bigint;
+    status: GovernanceStatus;
+    title: string;
+    owner: string;
+    approvedBy: string;
+    createdAt: bigint;
+    reviewDate: string;
+    description: string;
+    updatedAt: bigint;
+    category: GovernanceCategory;
+} {
+    return {
+        id: value.id,
+        status: from_candid_GovernanceStatus_n40(_uploadFile, _downloadFile, value.status),
+        title: value.title,
+        owner: value.owner,
+        approvedBy: value.approvedBy,
         createdAt: value.createdAt,
-        clauseName: value.clauseName,
+        reviewDate: value.reviewDate,
         description: value.description,
         updatedAt: value.updatedAt,
-        fileId: record_opt_to_undefined(from_candid_opt_n16(_uploadFile, _downloadFile, value.fileId)),
-        isAnnexA: value.isAnnexA,
-        clauseNumber: value.clauseNumber
+        category: from_candid_GovernanceCategory_n42(_uploadFile, _downloadFile, value.category)
+    };
+}
+function from_candid_record_n45(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
+    total: bigint;
+    byStatus: Array<[_GovernanceStatus, bigint]>;
+    byCategory: Array<[_GovernanceCategory, bigint]>;
+}): {
+    total: bigint;
+    byStatus: Array<[GovernanceStatus, bigint]>;
+    byCategory: Array<[GovernanceCategory, bigint]>;
+} {
+    return {
+        total: value.total,
+        byStatus: from_candid_vec_n46(_uploadFile, _downloadFile, value.byStatus),
+        byCategory: from_candid_vec_n48(_uploadFile, _downloadFile, value.byCategory)
     };
 }
 function from_candid_record_n5(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
@@ -405,7 +933,139 @@ function from_candid_record_n5(_uploadFile: (file: ExternalBlob) => Promise<Uint
         topped_up_amount: record_opt_to_undefined(from_candid_opt_n7(_uploadFile, _downloadFile, value.topped_up_amount))
     };
 }
-function from_candid_variant_n11(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
+function from_candid_record_n52(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
+    id: bigint;
+    treatmentNotes: string;
+    status: _RiskStatus;
+    impact: bigint;
+    title: string;
+    createdAt: bigint;
+    treatment: _RiskTreatment;
+    dueDate: string;
+    description: string;
+    mitigationControls: Array<_MitigationControl>;
+    residualRiskScore: bigint;
+    updatedAt: bigint;
+    vulnerability: string;
+    treatmentOwner: string;
+    treatmentPlanOwner: string;
+    threatCategory: _ThreatCategory;
+    treatmentPlanReviewDate: string;
+    inherentRiskScore: bigint;
+    treatmentPlanDescription: string;
+    likelihood: bigint;
+    riskLevel: _RiskLevel;
+    treatmentPlanTargetDate: string;
+}): {
+    id: bigint;
+    treatmentNotes: string;
+    status: RiskStatus;
+    impact: bigint;
+    title: string;
+    createdAt: bigint;
+    treatment: RiskTreatment;
+    dueDate: string;
+    description: string;
+    mitigationControls: Array<MitigationControl>;
+    residualRiskScore: bigint;
+    updatedAt: bigint;
+    vulnerability: string;
+    treatmentOwner: string;
+    treatmentPlanOwner: string;
+    threatCategory: ThreatCategory;
+    treatmentPlanReviewDate: string;
+    inherentRiskScore: bigint;
+    treatmentPlanDescription: string;
+    likelihood: bigint;
+    riskLevel: RiskLevel;
+    treatmentPlanTargetDate: string;
+} {
+    return {
+        id: value.id,
+        treatmentNotes: value.treatmentNotes,
+        status: from_candid_RiskStatus_n53(_uploadFile, _downloadFile, value.status),
+        impact: value.impact,
+        title: value.title,
+        createdAt: value.createdAt,
+        treatment: from_candid_RiskTreatment_n55(_uploadFile, _downloadFile, value.treatment),
+        dueDate: value.dueDate,
+        description: value.description,
+        mitigationControls: from_candid_vec_n57(_uploadFile, _downloadFile, value.mitigationControls),
+        residualRiskScore: value.residualRiskScore,
+        updatedAt: value.updatedAt,
+        vulnerability: value.vulnerability,
+        treatmentOwner: value.treatmentOwner,
+        treatmentPlanOwner: value.treatmentPlanOwner,
+        threatCategory: from_candid_ThreatCategory_n62(_uploadFile, _downloadFile, value.threatCategory),
+        treatmentPlanReviewDate: value.treatmentPlanReviewDate,
+        inherentRiskScore: value.inherentRiskScore,
+        treatmentPlanDescription: value.treatmentPlanDescription,
+        likelihood: value.likelihood,
+        riskLevel: from_candid_RiskLevel_n64(_uploadFile, _downloadFile, value.riskLevel),
+        treatmentPlanTargetDate: value.treatmentPlanTargetDate
+    };
+}
+function from_candid_record_n59(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
+    controlName: string;
+    maturityLevel: _MaturityLevel;
+    controlId: string;
+}): {
+    controlName: string;
+    maturityLevel: MaturityLevel;
+    controlId: string;
+} {
+    return {
+        controlName: value.controlName,
+        maturityLevel: from_candid_MaturityLevel_n60(_uploadFile, _downloadFile, value.maturityLevel),
+        controlId: value.controlId
+    };
+}
+function from_candid_record_n67(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
+    avgResidualScore: bigint;
+    total: bigint;
+    byLevel: Array<[_RiskLevel, bigint]>;
+    avgInherentScore: bigint;
+    byStatus: Array<[_RiskStatus, bigint]>;
+}): {
+    avgResidualScore: bigint;
+    total: bigint;
+    byLevel: Array<[RiskLevel, bigint]>;
+    avgInherentScore: bigint;
+    byStatus: Array<[RiskStatus, bigint]>;
+} {
+    return {
+        avgResidualScore: value.avgResidualScore,
+        total: value.total,
+        byLevel: from_candid_vec_n68(_uploadFile, _downloadFile, value.byLevel),
+        avgInherentScore: value.avgInherentScore,
+        byStatus: from_candid_vec_n70(_uploadFile, _downloadFile, value.byStatus)
+    };
+}
+function from_candid_tuple_n47(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [_GovernanceStatus, bigint]): [GovernanceStatus, bigint] {
+    return [
+        from_candid_GovernanceStatus_n40(_uploadFile, _downloadFile, value[0]),
+        value[1]
+    ];
+}
+function from_candid_tuple_n49(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [_GovernanceCategory, bigint]): [GovernanceCategory, bigint] {
+    return [
+        from_candid_GovernanceCategory_n42(_uploadFile, _downloadFile, value[0]),
+        value[1]
+    ];
+}
+function from_candid_tuple_n69(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [_RiskLevel, bigint]): [RiskLevel, bigint] {
+    return [
+        from_candid_RiskLevel_n64(_uploadFile, _downloadFile, value[0]),
+        value[1]
+    ];
+}
+function from_candid_tuple_n71(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [_RiskStatus, bigint]): [RiskStatus, bigint] {
+    return [
+        from_candid_RiskStatus_n53(_uploadFile, _downloadFile, value[0]),
+        value[1]
+    ];
+}
+function from_candid_variant_n31(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
     admin: null;
 } | {
     user: null;
@@ -414,19 +1074,164 @@ function from_candid_variant_n11(_uploadFile: (file: ExternalBlob) => Promise<Ui
 }): UserRole {
     return "admin" in value ? UserRole.admin : "user" in value ? UserRole.user : "guest" in value ? UserRole.guest : value;
 }
-function from_candid_variant_n15(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
-    notStarted: null;
+function from_candid_variant_n36(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
+    notImplemented: null;
 } | {
-    completed: null;
+    partiallyImplemented: null;
 } | {
-    approved: null;
+    fullyImplemented: null;
 } | {
-    inProgress: null;
-}): DocumentStatus {
-    return "notStarted" in value ? DocumentStatus.notStarted : "completed" in value ? DocumentStatus.completed : "approved" in value ? DocumentStatus.approved : "inProgress" in value ? DocumentStatus.inProgress : value;
+    notApplicable: null;
+}): ControlStatus {
+    return "notImplemented" in value ? ControlStatus.notImplemented : "partiallyImplemented" in value ? ControlStatus.partiallyImplemented : "fullyImplemented" in value ? ControlStatus.fullyImplemented : "notApplicable" in value ? ControlStatus.notApplicable : value;
 }
-function from_candid_vec_n17(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: Array<_Document>): Array<Document> {
-    return value.map((x)=>from_candid_Document_n12(_uploadFile, _downloadFile, x));
+function from_candid_variant_n41(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
+    active: null;
+} | {
+    underReview: null;
+} | {
+    draft: null;
+} | {
+    retired: null;
+}): GovernanceStatus {
+    return "active" in value ? GovernanceStatus.active : "underReview" in value ? GovernanceStatus.underReview : "draft" in value ? GovernanceStatus.draft : "retired" in value ? GovernanceStatus.retired : value;
+}
+function from_candid_variant_n43(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
+    actionItem: null;
+} | {
+    committee: null;
+} | {
+    meeting: null;
+} | {
+    policy: null;
+}): GovernanceCategory {
+    return "actionItem" in value ? GovernanceCategory.actionItem : "committee" in value ? GovernanceCategory.committee : "meeting" in value ? GovernanceCategory.meeting : "policy" in value ? GovernanceCategory.policy : value;
+}
+function from_candid_variant_n54(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
+    closed: null;
+} | {
+    open: null;
+} | {
+    inTreatment: null;
+}): RiskStatus {
+    return "closed" in value ? RiskStatus.closed : "open" in value ? RiskStatus.open : "inTreatment" in value ? RiskStatus.inTreatment : value;
+}
+function from_candid_variant_n56(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
+    accept: null;
+} | {
+    avoid: null;
+} | {
+    mitigate: null;
+} | {
+    transfer: null;
+}): RiskTreatment {
+    return "accept" in value ? RiskTreatment.accept : "avoid" in value ? RiskTreatment.avoid : "mitigate" in value ? RiskTreatment.mitigate : "transfer" in value ? RiskTreatment.transfer : value;
+}
+function from_candid_variant_n61(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
+    low: null;
+} | {
+    high: null;
+} | {
+    veryLow: null;
+} | {
+    critical: null;
+} | {
+    medium: null;
+}): MaturityLevel {
+    return "low" in value ? MaturityLevel.low : "high" in value ? MaturityLevel.high : "veryLow" in value ? MaturityLevel.veryLow : "critical" in value ? MaturityLevel.critical : "medium" in value ? MaturityLevel.medium : value;
+}
+function from_candid_variant_n63(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
+    nonHostileOutsiders: null;
+} | {
+    hostileInsiders: null;
+} | {
+    legal: null;
+} | {
+    dependencyProblems: null;
+} | {
+    hostileOutsiders: null;
+} | {
+    environmental: null;
+} | {
+    technicalProblems: null;
+} | {
+    nonHostileInsiders: null;
+}): ThreatCategory {
+    return "nonHostileOutsiders" in value ? ThreatCategory.nonHostileOutsiders : "hostileInsiders" in value ? ThreatCategory.hostileInsiders : "legal" in value ? ThreatCategory.legal : "dependencyProblems" in value ? ThreatCategory.dependencyProblems : "hostileOutsiders" in value ? ThreatCategory.hostileOutsiders : "environmental" in value ? ThreatCategory.environmental : "technicalProblems" in value ? ThreatCategory.technicalProblems : "nonHostileInsiders" in value ? ThreatCategory.nonHostileInsiders : value;
+}
+function from_candid_variant_n65(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
+    low: null;
+} | {
+    high: null;
+} | {
+    critical: null;
+} | {
+    medium: null;
+}): RiskLevel {
+    return "low" in value ? RiskLevel.low : "high" in value ? RiskLevel.high : "critical" in value ? RiskLevel.critical : "medium" in value ? RiskLevel.medium : value;
+}
+function from_candid_vec_n32(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: Array<_ComplianceControl>): Array<ComplianceControl> {
+    return value.map((x)=>from_candid_ComplianceControl_n33(_uploadFile, _downloadFile, x));
+}
+function from_candid_vec_n37(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: Array<_GovernanceItem>): Array<GovernanceItem> {
+    return value.map((x)=>from_candid_GovernanceItem_n38(_uploadFile, _downloadFile, x));
+}
+function from_candid_vec_n46(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: Array<[_GovernanceStatus, bigint]>): Array<[GovernanceStatus, bigint]> {
+    return value.map((x)=>from_candid_tuple_n47(_uploadFile, _downloadFile, x));
+}
+function from_candid_vec_n48(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: Array<[_GovernanceCategory, bigint]>): Array<[GovernanceCategory, bigint]> {
+    return value.map((x)=>from_candid_tuple_n49(_uploadFile, _downloadFile, x));
+}
+function from_candid_vec_n57(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: Array<_MitigationControl>): Array<MitigationControl> {
+    return value.map((x)=>from_candid_MitigationControl_n58(_uploadFile, _downloadFile, x));
+}
+function from_candid_vec_n68(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: Array<[_RiskLevel, bigint]>): Array<[RiskLevel, bigint]> {
+    return value.map((x)=>from_candid_tuple_n69(_uploadFile, _downloadFile, x));
+}
+function from_candid_vec_n70(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: Array<[_RiskStatus, bigint]>): Array<[RiskStatus, bigint]> {
+    return value.map((x)=>from_candid_tuple_n71(_uploadFile, _downloadFile, x));
+}
+function from_candid_vec_n72(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: Array<_RiskItem>): Array<RiskItem> {
+    return value.map((x)=>from_candid_RiskItem_n51(_uploadFile, _downloadFile, x));
+}
+function to_candid_ControlStatus_n12(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: ControlStatus): _ControlStatus {
+    return to_candid_variant_n13(_uploadFile, _downloadFile, value);
+}
+function to_candid_CreateComplianceControlInput_n10(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: CreateComplianceControlInput): _CreateComplianceControlInput {
+    return to_candid_record_n11(_uploadFile, _downloadFile, value);
+}
+function to_candid_CreateGovernanceItemInput_n14(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: CreateGovernanceItemInput): _CreateGovernanceItemInput {
+    return to_candid_record_n15(_uploadFile, _downloadFile, value);
+}
+function to_candid_CreateRiskInput_n18(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: CreateRiskInput): _CreateRiskInput {
+    return to_candid_record_n19(_uploadFile, _downloadFile, value);
+}
+function to_candid_GovernanceCategory_n16(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: GovernanceCategory): _GovernanceCategory {
+    return to_candid_variant_n17(_uploadFile, _downloadFile, value);
+}
+function to_candid_GovernanceStatus_n77(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: GovernanceStatus): _GovernanceStatus {
+    return to_candid_variant_n78(_uploadFile, _downloadFile, value);
+}
+function to_candid_MaturityLevel_n25(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: MaturityLevel): _MaturityLevel {
+    return to_candid_variant_n26(_uploadFile, _downloadFile, value);
+}
+function to_candid_MitigationControl_n23(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: MitigationControl): _MitigationControl {
+    return to_candid_record_n24(_uploadFile, _downloadFile, value);
+}
+function to_candid_RiskTreatment_n20(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: RiskTreatment): _RiskTreatment {
+    return to_candid_variant_n21(_uploadFile, _downloadFile, value);
+}
+function to_candid_ThreatCategory_n27(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: ThreatCategory): _ThreatCategory {
+    return to_candid_variant_n28(_uploadFile, _downloadFile, value);
+}
+function to_candid_UpdateComplianceControlInput_n73(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: UpdateComplianceControlInput): _UpdateComplianceControlInput {
+    return to_candid_record_n74(_uploadFile, _downloadFile, value);
+}
+function to_candid_UpdateGovernanceItemInput_n75(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: UpdateGovernanceItemInput): _UpdateGovernanceItemInput {
+    return to_candid_record_n76(_uploadFile, _downloadFile, value);
+}
+function to_candid_UpdateRiskInput_n79(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: UpdateRiskInput): _UpdateRiskInput {
+    return to_candid_record_n80(_uploadFile, _downloadFile, value);
 }
 function to_candid_UserRole_n8(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: UserRole): _UserRole {
     return to_candid_variant_n9(_uploadFile, _downloadFile, value);
@@ -437,6 +1242,123 @@ function to_candid__CaffeineStorageRefillInformation_n2(_uploadFile: (file: Exte
 function to_candid_opt_n1(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _CaffeineStorageRefillInformation | null): [] | [__CaffeineStorageRefillInformation] {
     return value === null ? candid_none() : candid_some(to_candid__CaffeineStorageRefillInformation_n2(_uploadFile, _downloadFile, value));
 }
+function to_candid_record_n11(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
+    status: ControlStatus;
+    controlName: string;
+    owner: string;
+    description: string;
+    frameworkId: bigint;
+    controlId: string;
+    evidence: string;
+}): {
+    status: _ControlStatus;
+    controlName: string;
+    owner: string;
+    description: string;
+    frameworkId: bigint;
+    controlId: string;
+    evidence: string;
+} {
+    return {
+        status: to_candid_ControlStatus_n12(_uploadFile, _downloadFile, value.status),
+        controlName: value.controlName,
+        owner: value.owner,
+        description: value.description,
+        frameworkId: value.frameworkId,
+        controlId: value.controlId,
+        evidence: value.evidence
+    };
+}
+function to_candid_record_n15(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
+    title: string;
+    owner: string;
+    approvedBy: string;
+    reviewDate: string;
+    description: string;
+    category: GovernanceCategory;
+}): {
+    title: string;
+    owner: string;
+    approvedBy: string;
+    reviewDate: string;
+    description: string;
+    category: _GovernanceCategory;
+} {
+    return {
+        title: value.title,
+        owner: value.owner,
+        approvedBy: value.approvedBy,
+        reviewDate: value.reviewDate,
+        description: value.description,
+        category: to_candid_GovernanceCategory_n16(_uploadFile, _downloadFile, value.category)
+    };
+}
+function to_candid_record_n19(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
+    treatmentNotes: string;
+    impact: bigint;
+    title: string;
+    treatment: RiskTreatment;
+    dueDate: string;
+    description: string;
+    mitigationControls: Array<MitigationControl>;
+    vulnerability: string;
+    treatmentOwner: string;
+    treatmentPlanOwner: string;
+    threatCategory: ThreatCategory;
+    treatmentPlanReviewDate: string;
+    treatmentPlanDescription: string;
+    likelihood: bigint;
+    treatmentPlanTargetDate: string;
+}): {
+    treatmentNotes: string;
+    impact: bigint;
+    title: string;
+    treatment: _RiskTreatment;
+    dueDate: string;
+    description: string;
+    mitigationControls: Array<_MitigationControl>;
+    vulnerability: string;
+    treatmentOwner: string;
+    treatmentPlanOwner: string;
+    threatCategory: _ThreatCategory;
+    treatmentPlanReviewDate: string;
+    treatmentPlanDescription: string;
+    likelihood: bigint;
+    treatmentPlanTargetDate: string;
+} {
+    return {
+        treatmentNotes: value.treatmentNotes,
+        impact: value.impact,
+        title: value.title,
+        treatment: to_candid_RiskTreatment_n20(_uploadFile, _downloadFile, value.treatment),
+        dueDate: value.dueDate,
+        description: value.description,
+        mitigationControls: to_candid_vec_n22(_uploadFile, _downloadFile, value.mitigationControls),
+        vulnerability: value.vulnerability,
+        treatmentOwner: value.treatmentOwner,
+        treatmentPlanOwner: value.treatmentPlanOwner,
+        threatCategory: to_candid_ThreatCategory_n27(_uploadFile, _downloadFile, value.threatCategory),
+        treatmentPlanReviewDate: value.treatmentPlanReviewDate,
+        treatmentPlanDescription: value.treatmentPlanDescription,
+        likelihood: value.likelihood,
+        treatmentPlanTargetDate: value.treatmentPlanTargetDate
+    };
+}
+function to_candid_record_n24(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
+    controlName: string;
+    maturityLevel: MaturityLevel;
+    controlId: string;
+}): {
+    controlName: string;
+    maturityLevel: _MaturityLevel;
+    controlId: string;
+} {
+    return {
+        controlName: value.controlName,
+        maturityLevel: to_candid_MaturityLevel_n25(_uploadFile, _downloadFile, value.maturityLevel),
+        controlId: value.controlId
+    };
+}
 function to_candid_record_n3(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
     proposed_top_up_amount?: bigint;
 }): {
@@ -445,6 +1367,242 @@ function to_candid_record_n3(_uploadFile: (file: ExternalBlob) => Promise<Uint8A
     return {
         proposed_top_up_amount: value.proposed_top_up_amount ? candid_some(value.proposed_top_up_amount) : candid_none()
     };
+}
+function to_candid_record_n74(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
+    id: bigint;
+    status?: ControlStatus;
+    owner?: string;
+    evidence?: string;
+}): {
+    id: bigint;
+    status: [] | [_ControlStatus];
+    owner: [] | [string];
+    evidence: [] | [string];
+} {
+    return {
+        id: value.id,
+        status: value.status ? candid_some(to_candid_ControlStatus_n12(_uploadFile, _downloadFile, value.status)) : candid_none(),
+        owner: value.owner ? candid_some(value.owner) : candid_none(),
+        evidence: value.evidence ? candid_some(value.evidence) : candid_none()
+    };
+}
+function to_candid_record_n76(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
+    id: bigint;
+    status?: GovernanceStatus;
+    title?: string;
+    owner?: string;
+    approvedBy?: string;
+    reviewDate?: string;
+    description?: string;
+    category?: GovernanceCategory;
+}): {
+    id: bigint;
+    status: [] | [_GovernanceStatus];
+    title: [] | [string];
+    owner: [] | [string];
+    approvedBy: [] | [string];
+    reviewDate: [] | [string];
+    description: [] | [string];
+    category: [] | [_GovernanceCategory];
+} {
+    return {
+        id: value.id,
+        status: value.status ? candid_some(to_candid_GovernanceStatus_n77(_uploadFile, _downloadFile, value.status)) : candid_none(),
+        title: value.title ? candid_some(value.title) : candid_none(),
+        owner: value.owner ? candid_some(value.owner) : candid_none(),
+        approvedBy: value.approvedBy ? candid_some(value.approvedBy) : candid_none(),
+        reviewDate: value.reviewDate ? candid_some(value.reviewDate) : candid_none(),
+        description: value.description ? candid_some(value.description) : candid_none(),
+        category: value.category ? candid_some(to_candid_GovernanceCategory_n16(_uploadFile, _downloadFile, value.category)) : candid_none()
+    };
+}
+function to_candid_record_n80(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
+    id: bigint;
+    treatmentNotes?: string;
+    impact?: bigint;
+    title?: string;
+    treatment?: RiskTreatment;
+    dueDate?: string;
+    description?: string;
+    mitigationControls?: Array<MitigationControl>;
+    vulnerability?: string;
+    treatmentOwner?: string;
+    treatmentPlanOwner?: string;
+    threatCategory?: ThreatCategory;
+    treatmentPlanReviewDate?: string;
+    treatmentPlanDescription?: string;
+    likelihood?: bigint;
+    treatmentPlanTargetDate?: string;
+}): {
+    id: bigint;
+    treatmentNotes: [] | [string];
+    impact: [] | [bigint];
+    title: [] | [string];
+    treatment: [] | [_RiskTreatment];
+    dueDate: [] | [string];
+    description: [] | [string];
+    mitigationControls: [] | [Array<_MitigationControl>];
+    vulnerability: [] | [string];
+    treatmentOwner: [] | [string];
+    treatmentPlanOwner: [] | [string];
+    threatCategory: [] | [_ThreatCategory];
+    treatmentPlanReviewDate: [] | [string];
+    treatmentPlanDescription: [] | [string];
+    likelihood: [] | [bigint];
+    treatmentPlanTargetDate: [] | [string];
+} {
+    return {
+        id: value.id,
+        treatmentNotes: value.treatmentNotes ? candid_some(value.treatmentNotes) : candid_none(),
+        impact: value.impact ? candid_some(value.impact) : candid_none(),
+        title: value.title ? candid_some(value.title) : candid_none(),
+        treatment: value.treatment ? candid_some(to_candid_RiskTreatment_n20(_uploadFile, _downloadFile, value.treatment)) : candid_none(),
+        dueDate: value.dueDate ? candid_some(value.dueDate) : candid_none(),
+        description: value.description ? candid_some(value.description) : candid_none(),
+        mitigationControls: value.mitigationControls ? candid_some(to_candid_vec_n22(_uploadFile, _downloadFile, value.mitigationControls)) : candid_none(),
+        vulnerability: value.vulnerability ? candid_some(value.vulnerability) : candid_none(),
+        treatmentOwner: value.treatmentOwner ? candid_some(value.treatmentOwner) : candid_none(),
+        treatmentPlanOwner: value.treatmentPlanOwner ? candid_some(value.treatmentPlanOwner) : candid_none(),
+        threatCategory: value.threatCategory ? candid_some(to_candid_ThreatCategory_n27(_uploadFile, _downloadFile, value.threatCategory)) : candid_none(),
+        treatmentPlanReviewDate: value.treatmentPlanReviewDate ? candid_some(value.treatmentPlanReviewDate) : candid_none(),
+        treatmentPlanDescription: value.treatmentPlanDescription ? candid_some(value.treatmentPlanDescription) : candid_none(),
+        likelihood: value.likelihood ? candid_some(value.likelihood) : candid_none(),
+        treatmentPlanTargetDate: value.treatmentPlanTargetDate ? candid_some(value.treatmentPlanTargetDate) : candid_none()
+    };
+}
+function to_candid_variant_n13(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: ControlStatus): {
+    notImplemented: null;
+} | {
+    partiallyImplemented: null;
+} | {
+    fullyImplemented: null;
+} | {
+    notApplicable: null;
+} {
+    return value == ControlStatus.notImplemented ? {
+        notImplemented: null
+    } : value == ControlStatus.partiallyImplemented ? {
+        partiallyImplemented: null
+    } : value == ControlStatus.fullyImplemented ? {
+        fullyImplemented: null
+    } : value == ControlStatus.notApplicable ? {
+        notApplicable: null
+    } : value;
+}
+function to_candid_variant_n17(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: GovernanceCategory): {
+    actionItem: null;
+} | {
+    committee: null;
+} | {
+    meeting: null;
+} | {
+    policy: null;
+} {
+    return value == GovernanceCategory.actionItem ? {
+        actionItem: null
+    } : value == GovernanceCategory.committee ? {
+        committee: null
+    } : value == GovernanceCategory.meeting ? {
+        meeting: null
+    } : value == GovernanceCategory.policy ? {
+        policy: null
+    } : value;
+}
+function to_candid_variant_n21(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: RiskTreatment): {
+    accept: null;
+} | {
+    avoid: null;
+} | {
+    mitigate: null;
+} | {
+    transfer: null;
+} {
+    return value == RiskTreatment.accept ? {
+        accept: null
+    } : value == RiskTreatment.avoid ? {
+        avoid: null
+    } : value == RiskTreatment.mitigate ? {
+        mitigate: null
+    } : value == RiskTreatment.transfer ? {
+        transfer: null
+    } : value;
+}
+function to_candid_variant_n26(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: MaturityLevel): {
+    low: null;
+} | {
+    high: null;
+} | {
+    veryLow: null;
+} | {
+    critical: null;
+} | {
+    medium: null;
+} {
+    return value == MaturityLevel.low ? {
+        low: null
+    } : value == MaturityLevel.high ? {
+        high: null
+    } : value == MaturityLevel.veryLow ? {
+        veryLow: null
+    } : value == MaturityLevel.critical ? {
+        critical: null
+    } : value == MaturityLevel.medium ? {
+        medium: null
+    } : value;
+}
+function to_candid_variant_n28(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: ThreatCategory): {
+    nonHostileOutsiders: null;
+} | {
+    hostileInsiders: null;
+} | {
+    legal: null;
+} | {
+    dependencyProblems: null;
+} | {
+    hostileOutsiders: null;
+} | {
+    environmental: null;
+} | {
+    technicalProblems: null;
+} | {
+    nonHostileInsiders: null;
+} {
+    return value == ThreatCategory.nonHostileOutsiders ? {
+        nonHostileOutsiders: null
+    } : value == ThreatCategory.hostileInsiders ? {
+        hostileInsiders: null
+    } : value == ThreatCategory.legal ? {
+        legal: null
+    } : value == ThreatCategory.dependencyProblems ? {
+        dependencyProblems: null
+    } : value == ThreatCategory.hostileOutsiders ? {
+        hostileOutsiders: null
+    } : value == ThreatCategory.environmental ? {
+        environmental: null
+    } : value == ThreatCategory.technicalProblems ? {
+        technicalProblems: null
+    } : value == ThreatCategory.nonHostileInsiders ? {
+        nonHostileInsiders: null
+    } : value;
+}
+function to_candid_variant_n78(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: GovernanceStatus): {
+    active: null;
+} | {
+    underReview: null;
+} | {
+    draft: null;
+} | {
+    retired: null;
+} {
+    return value == GovernanceStatus.active ? {
+        active: null
+    } : value == GovernanceStatus.underReview ? {
+        underReview: null
+    } : value == GovernanceStatus.draft ? {
+        draft: null
+    } : value == GovernanceStatus.retired ? {
+        retired: null
+    } : value;
 }
 function to_candid_variant_n9(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: UserRole): {
     admin: null;
@@ -460,6 +1618,9 @@ function to_candid_variant_n9(_uploadFile: (file: ExternalBlob) => Promise<Uint8
     } : value == UserRole.guest ? {
         guest: null
     } : value;
+}
+function to_candid_vec_n22(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: Array<MitigationControl>): Array<_MitigationControl> {
+    return value.map((x)=>to_candid_MitigationControl_n23(_uploadFile, _downloadFile, x));
 }
 export interface CreateActorOptions {
     agent?: Agent;

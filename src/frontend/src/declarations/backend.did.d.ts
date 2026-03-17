@@ -10,25 +10,191 @@ import type { ActorMethod } from '@icp-sdk/core/agent';
 import type { IDL } from '@icp-sdk/core/candid';
 import type { Principal } from '@icp-sdk/core/principal';
 
-export interface Document {
+export interface ComplianceControl {
   'id' : bigint,
-  'status' : DocumentStatus,
+  'status' : ControlStatus,
   'controlName' : string,
-  'title' : string,
-  'controlNumber' : string,
   'owner' : string,
+  'description' : string,
+  'frameworkId' : bigint,
+  'updatedAt' : bigint,
+  'controlId' : string,
+  'evidence' : string,
+}
+export interface ComplianceFramework {
+  'id' : bigint,
+  'name' : string,
+  'description' : string,
+  'version' : string,
+}
+export interface ComplianceScores {
+  'frameworkName' : string,
+  'total' : bigint,
+  'score' : bigint,
+  'implemented' : bigint,
+}
+export type ControlStatus = { 'notImplemented' : null } |
+  { 'partiallyImplemented' : null } |
+  { 'fullyImplemented' : null } |
+  { 'notApplicable' : null };
+export interface CreateComplianceControlInput {
+  'status' : ControlStatus,
+  'controlName' : string,
+  'owner' : string,
+  'description' : string,
+  'frameworkId' : bigint,
+  'controlId' : string,
+  'evidence' : string,
+}
+export interface CreateGovernanceItemInput {
+  'title' : string,
+  'owner' : string,
+  'approvedBy' : string,
+  'reviewDate' : string,
+  'description' : string,
+  'category' : GovernanceCategory,
+}
+export interface CreateRiskInput {
+  'treatmentNotes' : string,
+  'impact' : bigint,
+  'title' : string,
+  'treatment' : RiskTreatment,
+  'dueDate' : string,
+  'description' : string,
+  'mitigationControls' : Array<MitigationControl>,
+  'vulnerability' : string,
+  'treatmentOwner' : string,
+  'treatmentPlanOwner' : string,
+  'threatCategory' : ThreatCategory,
+  'treatmentPlanReviewDate' : string,
+  'treatmentPlanDescription' : string,
+  'likelihood' : bigint,
+  'treatmentPlanTargetDate' : string,
+}
+export type GovernanceCategory = { 'actionItem' : null } |
+  { 'committee' : null } |
+  { 'meeting' : null } |
+  { 'policy' : null };
+export interface GovernanceItem {
+  'id' : bigint,
+  'status' : GovernanceStatus,
+  'title' : string,
+  'owner' : string,
+  'approvedBy' : string,
   'createdAt' : bigint,
-  'clauseName' : string,
+  'reviewDate' : string,
   'description' : string,
   'updatedAt' : bigint,
-  'fileId' : [] | [string],
-  'isAnnexA' : boolean,
-  'clauseNumber' : string,
+  'category' : GovernanceCategory,
 }
-export type DocumentStatus = { 'notStarted' : null } |
-  { 'completed' : null } |
-  { 'approved' : null } |
-  { 'inProgress' : null };
+export type GovernanceStatus = { 'active' : null } |
+  { 'underReview' : null } |
+  { 'draft' : null } |
+  { 'retired' : null };
+export interface GovernanceSummary {
+  'total' : bigint,
+  'byStatus' : Array<[GovernanceStatus, bigint]>,
+  'byCategory' : Array<[GovernanceCategory, bigint]>,
+}
+export type MaturityLevel = { 'low' : null } |
+  { 'high' : null } |
+  { 'veryLow' : null } |
+  { 'critical' : null } |
+  { 'medium' : null };
+export interface MitigationControl {
+  'controlName' : string,
+  'maturityLevel' : MaturityLevel,
+  'controlId' : string,
+}
+export interface RiskItem {
+  'id' : bigint,
+  'treatmentNotes' : string,
+  'status' : RiskStatus,
+  'impact' : bigint,
+  'title' : string,
+  'createdAt' : bigint,
+  'treatment' : RiskTreatment,
+  'dueDate' : string,
+  'description' : string,
+  'mitigationControls' : Array<MitigationControl>,
+  'residualRiskScore' : bigint,
+  'updatedAt' : bigint,
+  'vulnerability' : string,
+  'treatmentOwner' : string,
+  'treatmentPlanOwner' : string,
+  'threatCategory' : ThreatCategory,
+  'treatmentPlanReviewDate' : string,
+  'inherentRiskScore' : bigint,
+  'treatmentPlanDescription' : string,
+  'likelihood' : bigint,
+  'riskLevel' : RiskLevel,
+  'treatmentPlanTargetDate' : string,
+}
+export type RiskLevel = { 'low' : null } |
+  { 'high' : null } |
+  { 'critical' : null } |
+  { 'medium' : null };
+export interface RiskStats {
+  'avgResidualScore' : bigint,
+  'total' : bigint,
+  'byLevel' : Array<[RiskLevel, bigint]>,
+  'avgInherentScore' : bigint,
+  'byStatus' : Array<[RiskStatus, bigint]>,
+}
+export type RiskStatus = { 'closed' : null } |
+  { 'open' : null } |
+  { 'inTreatment' : null };
+export type RiskTreatment = { 'accept' : null } |
+  { 'avoid' : null } |
+  { 'mitigate' : null } |
+  { 'transfer' : null };
+export type ThreatCategory = { 'nonHostileOutsiders' : null } |
+  { 'hostileInsiders' : null } |
+  { 'legal' : null } |
+  { 'dependencyProblems' : null } |
+  { 'hostileOutsiders' : null } |
+  { 'environmental' : null } |
+  { 'technicalProblems' : null } |
+  { 'nonHostileInsiders' : null };
+export interface UpdateComplianceControlInput {
+  'id' : bigint,
+  'status' : [] | [ControlStatus],
+  'owner' : [] | [string],
+  'evidence' : [] | [string],
+}
+export interface UpdateGovernanceItemInput {
+  'id' : bigint,
+  'status' : [] | [GovernanceStatus],
+  'title' : [] | [string],
+  'owner' : [] | [string],
+  'approvedBy' : [] | [string],
+  'reviewDate' : [] | [string],
+  'description' : [] | [string],
+  'category' : [] | [GovernanceCategory],
+}
+export interface UpdateRiskInput {
+  'id' : bigint,
+  'treatmentNotes' : [] | [string],
+  'impact' : [] | [bigint],
+  'title' : [] | [string],
+  'treatment' : [] | [RiskTreatment],
+  'dueDate' : [] | [string],
+  'description' : [] | [string],
+  'mitigationControls' : [] | [Array<MitigationControl>],
+  'vulnerability' : [] | [string],
+  'treatmentOwner' : [] | [string],
+  'treatmentPlanOwner' : [] | [string],
+  'threatCategory' : [] | [ThreatCategory],
+  'treatmentPlanReviewDate' : [] | [string],
+  'treatmentPlanDescription' : [] | [string],
+  'likelihood' : [] | [bigint],
+  'treatmentPlanTargetDate' : [] | [string],
+}
+export interface UserProfile {
+  'name' : string,
+  'email' : string,
+  'department' : string,
+}
 export type UserRole = { 'admin' : null } |
   { 'user' : null } |
   { 'guest' : null };
@@ -61,11 +227,38 @@ export interface _SERVICE {
   '_caffeineStorageUpdateGatewayPrincipals' : ActorMethod<[], undefined>,
   '_initializeAccessControlWithSecret' : ActorMethod<[string], undefined>,
   'assignCallerUserRole' : ActorMethod<[Principal, UserRole], undefined>,
+  'createComplianceControl' : ActorMethod<
+    [CreateComplianceControlInput],
+    bigint
+  >,
+  'createGovernanceItem' : ActorMethod<[CreateGovernanceItemInput], bigint>,
+  'createRisk' : ActorMethod<[CreateRiskInput], bigint>,
+  'deleteGovernanceItem' : ActorMethod<[bigint], undefined>,
+  'deleteRisk' : ActorMethod<[bigint], undefined>,
+  'getCallerUserProfile' : ActorMethod<[], [] | [UserProfile]>,
   'getCallerUserRole' : ActorMethod<[], UserRole>,
-  'getDocumentById' : ActorMethod<[bigint], Document>,
-  'getDocuments' : ActorMethod<[], Array<Document>>,
+  'getComplianceControls' : ActorMethod<[bigint], Array<ComplianceControl>>,
+  'getComplianceFrameworks' : ActorMethod<[], Array<ComplianceFramework>>,
+  'getComplianceScores' : ActorMethod<[], Array<ComplianceScores>>,
+  'getGovernanceItems' : ActorMethod<[], Array<GovernanceItem>>,
+  'getGovernanceSummary' : ActorMethod<[], GovernanceSummary>,
+  'getRiskById' : ActorMethod<[bigint], [] | [RiskItem]>,
+  'getRiskStats' : ActorMethod<[], RiskStats>,
+  'getRisks' : ActorMethod<[], Array<RiskItem>>,
+  'getUserProfile' : ActorMethod<[Principal], [] | [UserProfile]>,
+  'initializeGRCData' : ActorMethod<[], undefined>,
   'initializeISMSRepository' : ActorMethod<[], undefined>,
   'isCallerAdmin' : ActorMethod<[], boolean>,
+  'saveCallerUserProfile' : ActorMethod<[UserProfile], undefined>,
+  'updateComplianceControl' : ActorMethod<
+    [UpdateComplianceControlInput],
+    ComplianceControl
+  >,
+  'updateGovernanceItem' : ActorMethod<
+    [UpdateGovernanceItemInput],
+    GovernanceItem
+  >,
+  'updateRisk' : ActorMethod<[UpdateRiskInput], RiskItem>,
 }
 export declare const idlService: IDL.ServiceClass;
 export declare const idlInitArgs: IDL.Type[];
