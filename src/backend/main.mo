@@ -1299,4 +1299,40 @@ actor {
 
     results.toArray();
   };
+
+
+  // SSO Configuration
+  public type SSOConfig = {
+    enabled : Bool;
+    requireDomainWhitelist : Bool;
+    allowedDomains : [Text];
+    idpName : Text;
+    idpIssuerUrl : Text;
+    idpClientId : Text;
+    notes : Text;
+  };
+
+  var ssoConfig : SSOConfig = {
+    enabled = false;
+    requireDomainWhitelist = false;
+    allowedDomains = [];
+    idpName = "";
+    idpIssuerUrl = "";
+    idpClientId = "";
+    notes = "";
+  };
+
+  public query ({ caller }) func getSSOConfig() : async SSOConfig {
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only admins can view SSO configuration");
+    };
+    ssoConfig;
+  };
+
+  public shared ({ caller }) func setSSOConfig(config : SSOConfig) : async () {
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only admins can update SSO configuration");
+    };
+    ssoConfig := config;
+  };
 };

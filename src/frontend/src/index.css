@@ -215,4 +215,28 @@
   .bg-gradient-radial {
     background: radial-gradient(circle, var(--tw-gradient-stops));
   }
+
+  /* Trust Center styles */
+  .trust-gradient-text {
+    background: linear-gradient(
+      90deg,
+      oklch(72 0.18 155),
+      oklch(68 0.16 200),
+      oklch(65 0.2 220)
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .trust-posture-card {
+    background: linear-gradient(
+      145deg,
+      oklch(20 0.02 240 / 0.9),
+      oklch(18 0.015 260 / 0.9)
+    );
+    border: 1px solid oklch(35 0.05 230 / 0.5);
+    box-shadow: 0 0 0 1px oklch(68 0.18 155 / 0.08), 0 4px 20px
+      oklch(68 0.18 155 / 0.05);
+  }
 }

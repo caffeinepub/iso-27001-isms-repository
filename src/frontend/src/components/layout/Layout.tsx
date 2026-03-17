@@ -1,6 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
   Building2,
@@ -19,6 +19,7 @@ import { useState } from "react";
 import type { Page } from "../../App";
 import cybxsanLogo from "../../assets/cybxsan-logo.png";
 import { UserRole } from "../../backend";
+import { useActor } from "../../hooks/useActor";
 import { useInternetIdentity } from "../../hooks/useInternetIdentity";
 import { useCallerRole, useIsAdmin } from "../../hooks/useQueries";
 
@@ -34,14 +35,29 @@ const roleBadgeStyles: Record<UserRole, string> = {
   [UserRole.guest]: "bg-slate-500/20 text-slate-400 border-slate-500/40",
 };
 
+function useCallerProfile() {
+  const { actor, isFetching } = useActor();
+  return useQuery<{ name: string; email: string; department: string } | null>({
+    queryKey: ["callerProfile"],
+    queryFn: async () => {
+      if (!actor) return null;
+      return actor.getCallerUserProfile();
+    },
+    enabled: !!actor && !isFetching,
+  });
+}
+
 export function Layout({ currentPage, onNavigate, children }: LayoutProps) {
   const { identity, login, clear, isLoggingIn } = useInternetIdentity();
   const queryClient = useQueryClient();
   const { data: isAdmin } = useIsAdmin();
   const { data: role } = useCallerRole();
+  const { data: callerProfile } = useCallerProfile();
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const isAuthenticated = !!identity;
+
+  const displayEmail = callerProfile?.email || null;
 
   const handleLogout = async () => {
     await clear();
@@ -79,6 +95,12 @@ export function Layout({ currentPage, onNavigate, children }: LayoutProps) {
       label: "Governance",
       icon: Building2,
       minRole: "user",
+    },
+    {
+      id: "trustCenter" as Page,
+      label: "Trust Center",
+      icon: Shield,
+      minRole: "guest",
     },
     {
       id: "admin" as Page,
@@ -160,11 +182,11 @@ export function Layout({ currentPage, onNavigate, children }: LayoutProps) {
             <div className="px-3 py-2.5 rounded-lg bg-sidebar-accent">
               <div className="flex items-center gap-2 mb-1">
                 <Shield className="w-3.5 h-3.5 text-primary shrink-0" />
-                <span className="text-xs font-medium text-sidebar-accent-foreground">
-                  Signed In
+                <span className="text-xs font-medium text-sidebar-accent-foreground truncate max-w-[120px]">
+                  {displayEmail ?? "Signed In"}
                 </span>
                 <Badge
-                  className={`ml-auto text-[10px] border py-0 px-1.5 ${roleBadgeClass}`}
+                  className={`ml-auto text-[10px] border py-0 px-1.5 shrink-0 ${roleBadgeClass}`}
                 >
                   {roleLabel}
                 </Badge>
@@ -266,7 +288,9 @@ export function Layout({ currentPage, onNavigate, children }: LayoutProps) {
                 </Badge>
                 <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-muted/40 px-2.5 py-1.5 rounded-md">
                   <Shield className="w-3.5 h-3.5 text-primary" />
-                  <span>Signed In</span>
+                  <span className="max-w-[160px] truncate">
+                    {displayEmail ?? "Signed In"}
+                  </span>
                 </div>
               </div>
             )}

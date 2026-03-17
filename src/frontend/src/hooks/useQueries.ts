@@ -536,3 +536,36 @@ export type {
   UserApprovalInfo,
 };
 export { ApprovalStatus, ControlStatus };
+
+// ── SSO Config ─────────────────────────────────────────────────────────────
+
+export function useGetSSOConfig() {
+  const { actor, isFetching } = useActor();
+  return useQuery({
+    queryKey: ["ssoConfig"],
+    queryFn: async () => {
+      if (!actor) return null;
+      const a = actor as any;
+      if (typeof a.getSSOConfig !== "function") return null;
+      return a.getSSOConfig();
+    },
+    enabled: !!actor && !isFetching,
+  });
+}
+
+export function useSetSSOConfig() {
+  const { actor } = useActor();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (config: any) => {
+      if (!actor) throw new Error("No actor");
+      const a = actor as any;
+      await a.setSSOConfig(config);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["ssoConfig"] });
+      toast.success("SSO settings saved successfully");
+    },
+    onError: () => toast.error("Failed to save SSO settings"),
+  });
+}

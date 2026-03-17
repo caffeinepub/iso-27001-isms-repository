@@ -12,7 +12,9 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
 import { Principal } from "@icp-sdk/core/principal";
 import {
   AlertTriangle,
@@ -20,6 +22,8 @@ import {
   CheckCircle2,
   Database,
   Globe,
+  KeyRound,
+  Link,
   Loader2,
   Plus,
   Settings,
@@ -29,9 +33,10 @@ import {
   UserCog,
   UserX,
   Users,
+  X,
 } from "lucide-react";
 import { motion } from "motion/react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { ApprovalStatus, UserRole } from "../backend";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
@@ -41,11 +46,13 @@ import {
   useCallerRole,
   useCreateTenant,
   useDeleteTenant,
+  useGetSSOConfig,
   useInitializeGRCData,
   useListApprovals,
   useListTenants,
   useRisks,
   useSetApproval,
+  useSetSSOConfig,
 } from "../hooks/useQueries";
 
 const roleColors: Record<UserRole, string> = {
@@ -70,6 +77,246 @@ function formatDate(ts: bigint): string {
     month: "short",
     day: "numeric",
   });
+}
+
+function SSOTab() {
+  const { data: ssoConfig } = useGetSSOConfig();
+  const setSSOConfig = useSetSSOConfig();
+
+  const [ssoEnabled, setSsoEnabled] = useState(false);
+  const [requireDomainWhitelist, setRequireDomainWhitelist] = useState(false);
+  const [allowedDomains, setAllowedDomains] = useState<string[]>([]);
+  const [idpName, setIdpName] = useState("");
+  const [idpIssuerUrl, setIdpIssuerUrl] = useState("");
+  const [idpClientId, setIdpClientId] = useState("");
+  const [notes, setNotes] = useState("");
+  const [newDomain, setNewDomain] = useState("");
+
+  useEffect(() => {
+    if (ssoConfig) {
+      const c = ssoConfig as any;
+      setSsoEnabled(c.enabled ?? false);
+      setRequireDomainWhitelist(c.requireDomainWhitelist ?? false);
+      setAllowedDomains(c.allowedDomains ?? []);
+      setIdpName(c.idpName ?? "");
+      setIdpIssuerUrl(c.idpIssuerUrl ?? "");
+      setIdpClientId(c.idpClientId ?? "");
+      setNotes(c.notes ?? "");
+    }
+  }, [ssoConfig]);
+
+  const handleAddDomain = () => {
+    const d = newDomain.trim().toLowerCase();
+    if (d && !allowedDomains.includes(d)) {
+      setAllowedDomains((prev) => [...prev, d]);
+      setNewDomain("");
+    }
+  };
+
+  const handleRemoveDomain = (domain: string) => {
+    setAllowedDomains((prev) => prev.filter((d) => d !== domain));
+  };
+
+  const handleSave = () => {
+    setSSOConfig.mutate({
+      enabled: ssoEnabled,
+      requireDomainWhitelist,
+      allowedDomains,
+      idpName,
+      idpIssuerUrl,
+      idpClientId,
+      notes,
+    });
+  };
+
+  return (
+    <TabsContent value="sso" className="space-y-5 mt-0">
+      {/* SSO Status Card */}
+      <Card className="bg-card border-border">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-semibold flex items-center gap-2 text-foreground">
+            <KeyRound className="w-4 h-4 text-primary" />
+            Single Sign-On Settings
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          <div className="flex items-center justify-between py-2">
+            <div>
+              <p className="text-sm font-medium text-foreground">Enable SSO</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Activate Identity Provider integration for your organization
+              </p>
+            </div>
+            <Switch
+              checked={ssoEnabled}
+              onCheckedChange={setSsoEnabled}
+              data-ocid="admin.sso.enabled.switch"
+            />
+          </div>
+          <Separator className="bg-border/50" />
+          <div className="flex items-center justify-between py-2">
+            <div>
+              <p className="text-sm font-medium text-foreground">
+                Require Domain Whitelisting
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Only users from approved email domains can request access
+              </p>
+            </div>
+            <Switch
+              checked={requireDomainWhitelist}
+              onCheckedChange={setRequireDomainWhitelist}
+              data-ocid="admin.sso.domain_whitelist.switch"
+            />
+          </div>
+          <Separator className="bg-border/50" />
+          <div className="space-y-2">
+            <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              Admin Notes
+            </Label>
+            <Textarea
+              placeholder="Add notes about your SSO configuration or provider details..."
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={3}
+              className="bg-muted/20 border-border text-sm resize-none"
+              data-ocid="admin.sso.notes.textarea"
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* IdP Configuration */}
+      {ssoEnabled && (
+        <Card className="bg-card border-border">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2 text-foreground">
+              <Link className="w-4 h-4 text-primary" />
+              Identity Provider (IdP) Configuration
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="rounded-md bg-primary/10 border border-primary/20 px-3 py-2.5 text-xs text-muted-foreground leading-relaxed">
+              This platform uses Internet Identity for authentication. These
+              settings document your organization&apos;s IdP for audit and
+              reference purposes.
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                Provider Name
+              </Label>
+              <Input
+                placeholder="e.g. Okta, Azure AD, Google Workspace"
+                value={idpName}
+                onChange={(e) => setIdpName(e.target.value)}
+                className="bg-muted/20 border-border text-sm"
+                data-ocid="admin.sso.idp_name.input"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                Issuer URL / Metadata URL
+              </Label>
+              <Input
+                placeholder="https://your-idp.example.com/.well-known/openid-configuration"
+                value={idpIssuerUrl}
+                onChange={(e) => setIdpIssuerUrl(e.target.value)}
+                className="bg-muted/20 border-border text-sm"
+                data-ocid="admin.sso.idp_issuer.input"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                Client ID / Application ID
+              </Label>
+              <Input
+                placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                value={idpClientId}
+                onChange={(e) => setIdpClientId(e.target.value)}
+                className="bg-muted/20 border-border text-sm"
+                data-ocid="admin.sso.idp_client_id.input"
+              />
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Allowed Domains */}
+      {requireDomainWhitelist && (
+        <Card className="bg-card border-border">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2 text-foreground">
+              <Globe className="w-4 h-4 text-primary" />
+              Allowed Email Domains
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex gap-2">
+              <Input
+                placeholder="e.g. cybxsan.com"
+                value={newDomain}
+                onChange={(e) => setNewDomain(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleAddDomain()}
+                className="bg-muted/20 border-border text-sm"
+                data-ocid="admin.sso.new_domain.input"
+              />
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleAddDomain}
+                disabled={!newDomain.trim()}
+                className="border-border text-xs gap-1.5 shrink-0"
+                data-ocid="admin.sso.add_domain.button"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                Add Domain
+              </Button>
+            </div>
+            {allowedDomains.length === 0 ? (
+              <div
+                className="flex items-center justify-center py-6 text-sm text-muted-foreground border border-dashed border-border rounded-md"
+                data-ocid="admin.sso.empty_state"
+              >
+                No allowed domains configured. Add domains above.
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {allowedDomains.map((domain, idx) => (
+                  <div
+                    key={domain}
+                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/15 border border-primary/25 text-xs font-medium text-primary"
+                  >
+                    <span>{domain}</span>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveDomain(domain)}
+                      className="hover:text-destructive transition-colors"
+                      data-ocid={`admin.sso.domain.delete_button.${idx + 1}`}
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Save */}
+      <Button
+        className="w-full bg-primary text-primary-foreground hover:bg-primary/90 text-sm font-medium"
+        onClick={handleSave}
+        disabled={setSSOConfig.isPending}
+        data-ocid="admin.sso.save.primary_button"
+      >
+        {setSSOConfig.isPending ? (
+          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+        ) : null}
+        {setSSOConfig.isPending ? "Saving..." : "Save SSO Settings"}
+      </Button>
+    </TabsContent>
+  );
 }
 
 export function Admin() {
@@ -243,7 +490,7 @@ export function Admin() {
       >
         <Tabs defaultValue="users" className="w-full">
           <TabsList
-            className="w-full grid grid-cols-3 bg-muted/30 border border-border mb-5"
+            className="w-full grid grid-cols-4 bg-muted/30 border border-border mb-5"
             data-ocid="admin.tab"
           >
             <TabsTrigger
@@ -274,6 +521,14 @@ export function Admin() {
             >
               <Database className="w-3.5 h-3.5" />
               Data
+            </TabsTrigger>
+            <TabsTrigger
+              value="sso"
+              data-ocid="admin.sso.tab"
+              className="text-xs gap-1.5 data-[state=active]:bg-primary/20 data-[state=active]:text-primary"
+            >
+              <KeyRound className="w-3.5 h-3.5" />
+              SSO
             </TabsTrigger>
           </TabsList>
 
@@ -998,6 +1253,9 @@ export function Admin() {
               </CardContent>
             </Card>
           </TabsContent>
+
+          {/* ── SSO TAB ─────────────────────────────────────────────── */}
+          <SSOTab />
         </Tabs>
       </motion.div>
     </div>
