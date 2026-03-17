@@ -86,11 +86,21 @@ actor {
     userProfiles.get(user);
   };
 
+  // Designated admin email -- this principal can claim admin by email verification
+  let DESIGNATED_ADMIN_EMAIL : Text = "sanjoykarmakar.hclcdc@gmail.com";
+
   public shared ({ caller }) func saveCallerUserProfile(profile : UserProfile) : async () {
-    if (not isApprovedOrAdmin(caller)) {
+    let isDesignatedAdmin = profile.email == DESIGNATED_ADMIN_EMAIL;
+    if (not isApprovedOrAdmin(caller) and not isDesignatedAdmin) {
       Runtime.trap("Unauthorized: Only approved users can save profiles");
     };
     userProfiles.add(caller, profile);
+    // Auto-promote designated admin email to admin role
+    if (isDesignatedAdmin) {
+      accessControlState.userRoles.add(caller, #admin);
+      accessControlState.adminAssigned := true;
+      UserApproval.setApproval(approvalState, caller, #approved);
+    };
   };
 
   // Document Management

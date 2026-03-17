@@ -1,5 +1,6 @@
 import { Skeleton } from "@/components/ui/skeleton";
 import { Toaster } from "@/components/ui/sonner";
+import { useQueryClient } from "@tanstack/react-query";
 import { ShieldCheck } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Layout } from "./components/layout/Layout";
@@ -17,14 +18,11 @@ import { Dashboard } from "./pages/Dashboard";
 import { Documents } from "./pages/Documents";
 import { Governance } from "./pages/Governance";
 import { Login } from "./pages/Login";
-import { RequestAccess } from "./pages/RequestAccess";
 import { RiskRegister } from "./pages/RiskRegister";
 import { TrustCenter } from "./pages/TrustCenter";
 import {
-  getSecretFromHash,
-  getSessionParameter,
-  getUrlParameter,
-  storeSessionParameter,
+  clearAdminTokenFromUrl,
+  getAdminTokenFromUrl,
 } from "./utils/urlParams";
 
 export type Page =
@@ -36,46 +34,43 @@ export type Page =
   | "compliance"
   | "trustCenter";
 
-/** Returns the admin token from URL (query string or hash fragment) or session storage */
-function getAdminToken(): string | null {
-  // 1. Try regular query string: ?caffeineAdminToken=...
-  const queryToken = getUrlParameter("caffeineAdminToken");
-  if (queryToken) {
-    storeSessionParameter("caffeineAdminToken", queryToken);
-    return queryToken;
-  }
+// Capture the admin token once at module load time so URL changes don't affect it.
+const INITIAL_ADMIN_TOKEN = getAdminTokenFromUrl();
 
-  // 2. Try hash fragment: #caffeineAdminToken=... (Caffeine platform uses this format)
-  const hashToken = getSecretFromHash("caffeineAdminToken");
-  if (hashToken) {
-    return hashToken;
-  }
-
-  // 3. Fall back to session storage (persisted from a previous page load)
-  return getSessionParameter("caffeineAdminToken");
+function LoadingScreen({ message }: { message: string }) {
+  return (
+    <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="flex flex-col items-center gap-4">
+        <div className="w-12 h-12 rounded-xl bg-primary/15 border border-primary/25 flex items-center justify-center animate-pulse">
+          <ShieldCheck className="w-6 h-6 text-primary" />
+        </div>
+        <div className="space-y-2 w-48">
+          <Skeleton className="h-2 w-full" />
+          <Skeleton className="h-2 w-3/4 mx-auto" />
+        </div>
+        <p className="text-xs text-muted-foreground">{message}</p>
+      </div>
+    </div>
+  );
 }
+
+type ClaimStatus = "idle" | "claiming" | "claimed" | "error";
 
 function AppShell() {
   const { identity, isInitializing } = useInternetIdentity();
   const { actor, isFetching: actorLoading } = useActor();
-  const {
-    data: isAdmin,
-    isLoading: adminLoading,
-    refetch: refetchAdmin,
-  } = useIsAdmin();
-  const { data: isAdminAssigned, refetch: refetchAdminAssigned } =
-    useIsAdminAssigned();
+  const queryClient = useQueryClient();
+  const { data: isAdmin } = useIsAdmin();
+  const { isLoading: adminAssignedLoading } = useIsAdminAssigned();
   const { data: isApproved, isLoading: approvalLoading } = useIsApproved();
   const [page, setPage] = useState<Page>("dashboard");
-  const initDone = useRef(false);
+  const [claimStatus, setClaimStatus] = useState<ClaimStatus>("idle");
   const claimAttempted = useRef(false);
-  const [claiming, setClaiming] = useState(false);
-  const [claimFailed, setClaimFailed] = useState(false);
+  const initDone = useRef(false);
 
   const isAuthenticated = !!identity;
-  const adminToken = getAdminToken();
-  const tokenPresent = !!adminToken;
 
+  // One-time data initialization
   useEffect(() => {
     if (!actor || actorLoading || initDone.current) return;
     initDone.current = true;
@@ -91,147 +86,116 @@ function AppShell() {
     ]);
   }, [actor, actorLoading]);
 
-  // Auto-claim admin when token is present
+  // Admin token claim -- runs ONCE, only when token is present in URL
   useEffect(() => {
-    if (
-      !actor ||
-      actorLoading ||
-      !isAuthenticated ||
-      !tokenPresent ||
-      claimAttempted.current ||
-      isAdmin === true ||
-      isAdminAssigned === undefined
-    )
-      return;
-
-    if (isAdminAssigned === true && isAdmin === false) return; // admin claimed by someone else
+    if (!INITIAL_ADMIN_TOKEN) return;
+    if (!actor || actorLoading) return;
+    if (!isAuthenticated) return;
+    if (claimAttempted.current) return;
 
     claimAttempted.current = true;
-    setClaiming(true);
-    setClaimFailed(false);
+    setClaimStatus("claiming");
 
-    const a = actor as any;
-    const claimFn: ((token: string) => Promise<void>) | undefined =
-      typeof a.claimAdmin === "function" ? a.claimAdmin.bind(a) : undefined;
+    const a = actor as unknown as Record<string, unknown>;
+    const fn = a._initializeAccessControlWithSecret;
 
-    if (!claimFn) {
-      setClaiming(false);
+    if (typeof fn !== "function") {
+      setClaimStatus("claimed");
+      clearAdminTokenFromUrl();
+      // Refresh role queries even if method wasn't found
+      queryClient.invalidateQueries({ queryKey: ["isAdmin"] });
+      queryClient.invalidateQueries({ queryKey: ["isAdminAssigned"] });
+      queryClient.invalidateQueries({ queryKey: ["isApproved"] });
+      queryClient.invalidateQueries({ queryKey: ["callerRole"] });
       return;
     }
 
-    claimFn(adminToken!)
+    (fn as (token: string) => Promise<void>)
+      .call(actor, INITIAL_ADMIN_TOKEN)
       .then(() => {
-        setClaiming(false);
-        return Promise.all([refetchAdmin(), refetchAdminAssigned()]);
+        clearAdminTokenFromUrl();
+        // Invalidate ALL role/auth queries so they re-fetch with updated admin status
+        return Promise.all([
+          queryClient.invalidateQueries({ queryKey: ["isAdmin"] }),
+          queryClient.invalidateQueries({ queryKey: ["isAdminAssigned"] }),
+          queryClient.invalidateQueries({ queryKey: ["isApproved"] }),
+          queryClient.invalidateQueries({ queryKey: ["callerRole"] }),
+          queryClient.refetchQueries({ queryKey: ["isAdmin"] }),
+          queryClient.refetchQueries({ queryKey: ["isAdminAssigned"] }),
+        ]);
+      })
+      .then(() => {
+        setClaimStatus("claimed");
       })
       .catch((err: unknown) => {
-        console.warn("claimAdmin failed:", err);
-        setClaiming(false);
-        setClaimFailed(true);
+        console.error("Admin claim failed:", err);
+        setClaimStatus("error");
+        clearAdminTokenFromUrl();
       });
-  }, [
-    actor,
-    actorLoading,
-    isAuthenticated,
-    tokenPresent,
-    isAdmin,
-    isAdminAssigned,
-    adminToken,
-    refetchAdmin,
-    refetchAdminAssigned,
-  ]);
+  }, [actor, actorLoading, isAuthenticated, queryClient]);
 
+  // Redirect away from admin page if not admin
   useEffect(() => {
     if (page === "admin" && isAdmin === false) {
       setPage("dashboard");
     }
   }, [page, isAdmin]);
 
+  // --- Render state machine ---
+
   if (isInitializing) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-primary/15 border border-primary/25 flex items-center justify-center animate-pulse">
-            <ShieldCheck className="w-6 h-6 text-primary" />
-          </div>
-          <div className="space-y-2 w-48">
-            <Skeleton className="h-2 w-full" />
-            <Skeleton className="h-2 w-3/4 mx-auto" />
-          </div>
-          <p className="text-xs text-muted-foreground">
-            Loading GRC Platform...
-          </p>
-        </div>
-      </div>
-    );
+    return <LoadingScreen message="Loading GRC Platform..." />;
   }
 
   if (!isAuthenticated) {
     return <Login />;
   }
 
-  // When token present, wait for claim process to complete (including post-claim admin check)
-  if (tokenPresent && (actorLoading || adminLoading || claiming)) {
+  if (actorLoading || !actor) {
+    return <LoadingScreen message="Connecting to platform..." />;
+  }
+
+  // Admin claim in progress
+  if (INITIAL_ADMIN_TOKEN && claimStatus === "claiming") {
+    return <LoadingScreen message="Activating admin access..." />;
+  }
+
+  // Admin claim errored
+  if (INITIAL_ADMIN_TOKEN && claimStatus === "error") {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-amber-500/15 border border-amber-500/25 flex items-center justify-center animate-pulse">
-            <ShieldCheck className="w-6 h-6 text-amber-400" />
-          </div>
-          <div className="space-y-2 w-48">
-            <Skeleton className="h-2 w-full" />
-            <Skeleton className="h-2 w-3/4 mx-auto" />
-          </div>
-          <p className="text-xs text-muted-foreground">
-            Activating admin access...
+        <div className="flex flex-col items-center gap-4 max-w-sm text-center">
+          <ShieldCheck className="w-10 h-10 text-destructive" />
+          <p className="text-sm text-foreground font-semibold">
+            Admin claim failed
           </p>
+          <p className="text-xs text-muted-foreground">
+            The admin token was invalid or has already been used. Please check
+            your Caffeine project settings for the correct token and try again.
+          </p>
+          <button
+            type="button"
+            className="text-xs text-primary underline mt-2"
+            onClick={() => window.location.reload()}
+          >
+            Reload and try again
+          </button>
         </div>
       </div>
     );
   }
 
-  // Show claim failure screen
-  if (tokenPresent && claimFailed && !isAdmin) {
-    return <ClaimAdmin />;
+  if (adminAssignedLoading) {
+    return <LoadingScreen message="Verifying platform status..." />;
   }
 
-  // If token was provided and claim succeeded, go directly to admin view
-  if (tokenPresent && isAdmin === true) {
-    return (
-      <Layout currentPage="admin" onNavigate={setPage}>
-        <Admin />
-      </Layout>
-    );
-  }
-
-  // If no admin has been assigned yet and no token, show the admin claim/setup screen
-  if (
-    isAuthenticated &&
-    isAdminAssigned === false &&
-    isAdmin === false &&
-    !tokenPresent
-  ) {
-    return <ClaimAdmin />;
-  }
-
-  // Admin always bypasses approval check
-  if (!isAdmin && isAuthenticated) {
-    // Still loading approval status
+  // Any non-admin unapproved user sees the ClaimAdmin screen (handles both admin claim and access request)
+  if (!isAdmin) {
     if (approvalLoading || isApproved === undefined) {
-      return (
-        <div className="min-h-screen bg-background flex items-center justify-center">
-          <div className="flex flex-col items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-primary/15 border border-primary/25 flex items-center justify-center animate-pulse">
-              <ShieldCheck className="w-6 h-6 text-primary" />
-            </div>
-            <p className="text-xs text-muted-foreground">Verifying access...</p>
-          </div>
-        </div>
-      );
+      return <LoadingScreen message="Verifying access..." />;
     }
-
     if (!isApproved) {
-      return <RequestAccessGate />;
+      return <ClaimAdmin />;
     }
   }
 
@@ -246,47 +210,6 @@ function AppShell() {
       {page === "admin" && isAdmin && <Admin />}
       {page === "admin" && !isAdmin && <Dashboard onNavigate={setPage} />}
     </Layout>
-  );
-}
-
-function RequestAccessGate() {
-  const { actor } = useActor();
-  const [requestState, setRequestState] = useState<
-    "not_requested" | "pending" | "rejected"
-  >("not_requested");
-  const checkedRef = useRef(false);
-
-  useEffect(() => {
-    if (!actor || checkedRef.current) return;
-    checkedRef.current = true;
-    const stored = sessionStorage.getItem("access_requested");
-    if (stored === "pending") {
-      setRequestState("pending");
-    } else if (stored === "rejected") {
-      setRequestState("rejected");
-    }
-  }, [actor]);
-
-  return (
-    <RequestAccessWithState
-      requestState={requestState}
-      onRequested={() => {
-        sessionStorage.setItem("access_requested", "pending");
-        setRequestState("pending");
-      }}
-    />
-  );
-}
-
-function RequestAccessWithState({
-  requestState,
-  onRequested,
-}: {
-  requestState: "not_requested" | "pending" | "rejected";
-  onRequested: () => void;
-}) {
-  return (
-    <RequestAccess requestState={requestState} onRequested={onRequested} />
   );
 }
 

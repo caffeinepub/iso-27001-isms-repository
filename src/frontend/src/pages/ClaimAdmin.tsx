@@ -1,21 +1,77 @@
 import { Button } from "@/components/ui/button";
-import { KeyRound, LogOut, Settings } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { useQueryClient } from "@tanstack/react-query";
+import { CheckCircle2, LogOut, Mail, ShieldCheck } from "lucide-react";
 import { motion } from "motion/react";
+import { useState } from "react";
 import cybxsanLogo from "../assets/cybxsan-logo.png";
+import { useActor } from "../hooks/useActor";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
+
+type ClaimState = "idle" | "loading" | "success" | "error";
 
 export function ClaimAdmin() {
   const { clear } = useInternetIdentity();
-  const currentUrl = window.location.href.split("?")[0];
-  const exampleUrl = `${currentUrl}?caffeineAdminToken=YOUR_TOKEN`;
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+  const [email, setEmail] = useState("");
+  const [claimState, setClaimState] = useState<ClaimState>("idle");
+  const [errorMsg, setErrorMsg] = useState("");
+
+  async function handleClaim() {
+    if (!email.trim() || !actor) return;
+    setClaimState("loading");
+    setErrorMsg("");
+    try {
+      await (
+        actor as unknown as Record<
+          string,
+          (profile: {
+            name: string;
+            email: string;
+            department: string;
+          }) => Promise<void>
+        >
+      ).saveCallerUserProfile({
+        name: "Administrator",
+        email: email.trim(),
+        department: "IT Security",
+      });
+      // Invalidate all role queries so the app re-checks admin status
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["isAdmin"] }),
+        queryClient.invalidateQueries({ queryKey: ["isAdminAssigned"] }),
+        queryClient.invalidateQueries({ queryKey: ["isApproved"] }),
+        queryClient.invalidateQueries({ queryKey: ["callerRole"] }),
+      ]);
+      await Promise.all([
+        queryClient.refetchQueries({ queryKey: ["isAdmin"] }),
+        queryClient.refetchQueries({ queryKey: ["isAdminAssigned"] }),
+        queryClient.refetchQueries({ queryKey: ["isApproved"] }),
+      ]);
+      setClaimState("success");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (
+        msg.includes("email") ||
+        msg.includes("match") ||
+        msg.includes("admin")
+      ) {
+        setErrorMsg(
+          "Email not recognized as admin. Please check and try again.",
+        );
+      } else {
+        setErrorMsg("Claim failed. Please try again.");
+      }
+      setClaimState("error");
+    }
+  }
 
   return (
     <div className="min-h-screen login-bg flex items-center justify-center p-4 relative overflow-hidden">
       {/* Gradient orbs */}
       <div className="fixed top-[-20%] left-[-10%] w-[500px] h-[500px] rounded-full bg-gradient-radial from-amber-500/15 via-orange-600/10 to-transparent blur-3xl pointer-events-none" />
       <div className="fixed bottom-[-20%] right-[-10%] w-[500px] h-[500px] rounded-full bg-gradient-radial from-violet-600/20 via-purple-700/10 to-transparent blur-3xl pointer-events-none" />
-
-      {/* Background grid */}
       <div className="fixed inset-0 sidebar-grid opacity-20 pointer-events-none" />
 
       <motion.div
@@ -41,10 +97,10 @@ export function ClaimAdmin() {
             </div>
           </div>
           <h1 className="font-display text-2xl font-bold login-title-gradient">
-            Admin Setup Required
+            Admin Access
           </h1>
           <p className="text-sm text-slate-400 mt-1">
-            One-time administrator configuration
+            Verify your identity to activate administrator privileges
           </p>
         </motion.div>
 
@@ -55,126 +111,91 @@ export function ClaimAdmin() {
           transition={{ duration: 0.5, delay: 0.2 }}
           className="login-card rounded-2xl p-6 space-y-5"
         >
-          {/* Icon + explanation */}
-          <div className="flex items-start gap-4">
-            <div className="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/25 flex items-center justify-center shrink-0">
-              <Settings className="w-5 h-5 text-amber-400" />
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-slate-200 leading-snug">
-                Your account needs to be configured as the platform
-                administrator.
+          {claimState === "success" ? (
+            <div className="flex flex-col items-center gap-4 py-4">
+              <div className="w-14 h-14 rounded-full bg-green-500/15 border border-green-500/30 flex items-center justify-center">
+                <CheckCircle2 className="w-7 h-7 text-green-400" />
+              </div>
+              <p className="text-sm font-semibold text-slate-200 text-center">
+                Admin access granted!
               </p>
-              <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
-                To complete setup, you need to visit this application with your
-                Caffeine Admin Token added to the URL.
+              <p className="text-xs text-slate-400 text-center">
+                Loading your administrator dashboard...
               </p>
             </div>
-          </div>
+          ) : (
+            <>
+              {/* Icon + explanation */}
+              <div className="flex items-start gap-4">
+                <div className="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/25 flex items-center justify-center shrink-0">
+                  <ShieldCheck className="w-5 h-5 text-amber-400" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-slate-200 leading-snug">
+                    Enter your registered admin email to activate administrator
+                    access.
+                  </p>
+                  <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
+                    This platform recognizes the designated administrator by
+                    their registered email address.
+                  </p>
+                </div>
+              </div>
 
-          {/* Divider */}
-          <div className="login-divider" />
+              <div className="login-divider" />
 
-          {/* Instructions */}
-          <div className="login-steps-box rounded-xl p-4 space-y-3">
-            <div className="flex items-center gap-2">
-              <KeyRound className="w-4 h-4 text-amber-400 shrink-0" />
-              <span className="text-xs font-semibold text-amber-300 uppercase tracking-wider">
-                How to claim admin access
-              </span>
-            </div>
-            <ol className="space-y-3">
-              <motion.li
-                initial={{ opacity: 0, x: -8 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.35, delay: 0.4 }}
-                className="flex items-start gap-2.5"
-              >
-                <span className="w-5 h-5 rounded-full bg-gradient-to-br from-amber-500 to-orange-500 text-white text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">
-                  1
-                </span>
-                <span className="text-xs text-slate-400 leading-relaxed">
-                  Open your{" "}
-                  <a
-                    href="https://caffeine.ai"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-amber-400 hover:text-amber-300 underline underline-offset-2"
-                  >
-                    Caffeine project settings
-                  </a>{" "}
-                  and copy your Admin Token.
-                </span>
-              </motion.li>
-              <motion.li
-                initial={{ opacity: 0, x: -8 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.35, delay: 0.47 }}
-                className="flex items-start gap-2.5"
-              >
-                <span className="w-5 h-5 rounded-full bg-gradient-to-br from-orange-500 to-rose-500 text-white text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">
-                  2
-                </span>
-                <span className="text-xs text-slate-400 leading-relaxed">
-                  Add{" "}
-                  <code className="text-amber-300 bg-amber-500/10 px-1 py-0.5 rounded text-[11px]">
-                    ?caffeineAdminToken=YOUR_TOKEN
-                  </code>{" "}
-                  to the end of the URL below and open it in your browser.
-                </span>
-              </motion.li>
-              <motion.li
-                initial={{ opacity: 0, x: -8 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.35, delay: 0.54 }}
-                className="flex items-start gap-2.5"
-              >
-                <span className="w-5 h-5 rounded-full bg-gradient-to-br from-rose-500 to-violet-500 text-white text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">
-                  3
-                </span>
-                <span className="text-xs text-slate-400 leading-relaxed">
-                  Sign in again — your account will be automatically promoted to
-                  administrator.
-                </span>
-              </motion.li>
-            </ol>
-          </div>
+              {/* Email form */}
+              <div className="space-y-3">
+                <label
+                  htmlFor="admin-email"
+                  className="text-xs font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-2"
+                >
+                  <Mail className="w-3.5 h-3.5 text-amber-400" />
+                  Admin Email Address
+                </label>
+                <Input
+                  id="admin-email"
+                  type="email"
+                  placeholder="your@email.com"
+                  value={email}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    setClaimState("idle");
+                    setErrorMsg("");
+                  }}
+                  onKeyDown={(e) => e.key === "Enter" && handleClaim()}
+                  className="bg-slate-800/60 border-slate-600/50 text-slate-200 placeholder:text-slate-500 focus:border-amber-500/50 focus:ring-amber-500/20"
+                />
+                {errorMsg && <p className="text-xs text-red-400">{errorMsg}</p>}
+                <Button
+                  onClick={handleClaim}
+                  disabled={claimState === "loading" || !email.trim()}
+                  className="w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-white font-semibold"
+                >
+                  {claimState === "loading"
+                    ? "Verifying..."
+                    : "Activate Admin Access"}
+                </Button>
+              </div>
+            </>
+          )}
+        </motion.div>
 
-          {/* Current URL reference */}
-          <div className="space-y-1.5">
-            <p className="text-xs text-slate-500 font-medium">
-              Your current URL (for reference):
-            </p>
-            <div className="bg-slate-900/60 border border-slate-700/50 rounded-lg px-3 py-2">
-              <p className="text-[11px] text-slate-400 font-mono break-all leading-relaxed">
-                {currentUrl}
-              </p>
-            </div>
-            <p className="text-xs text-slate-500 font-medium mt-2">
-              Example with token appended:
-            </p>
-            <div className="bg-amber-500/5 border border-amber-500/20 rounded-lg px-3 py-2">
-              <p className="text-[11px] text-amber-400/80 font-mono break-all leading-relaxed">
-                {exampleUrl}
-              </p>
-            </div>
-          </div>
-
-          {/* Sign out */}
-          <div className="pt-1">
-            <Button
-              data-ocid="claim-admin.button"
-              variant="outline"
-              className="w-full h-10 text-sm rounded-xl border-slate-700 text-slate-300 hover:text-slate-100 hover:border-slate-600 bg-transparent"
-              onClick={clear}
-            >
-              <LogOut className="w-4 h-4 mr-2" />
-              Sign Out &amp; Try Different Account
-            </Button>
-            <p className="text-center text-[11px] text-slate-600 mt-3">
-              This screen only appears before the first admin is set up.
-            </p>
-          </div>
+        {/* Sign out */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.5, delay: 0.4 }}
+          className="text-center mt-4"
+        >
+          <button
+            type="button"
+            onClick={clear}
+            className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-300 transition-colors"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+            Sign out
+          </button>
         </motion.div>
       </motion.div>
     </div>
