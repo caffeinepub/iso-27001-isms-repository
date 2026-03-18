@@ -1312,16 +1312,50 @@ export function Admin() {
                       Registered Tenants
                     </CardTitle>
                   </div>
-                  {tenants && tenants.length > 0 && (
-                    <Badge className="bg-primary/15 text-primary border border-primary/30 text-xs">
-                      {tenants.length} tenant{tenants.length !== 1 ? "s" : ""}
-                    </Badge>
-                  )}
+                  {(() => {
+                    const formalDomains = new Set(
+                      (tenants ?? []).map((t: any) => t.domain),
+                    );
+                    const tenantUserOrgs = Object.values(
+                      (
+                        (tenantUsers ?? []).filter(
+                          (u: any) => u.approved,
+                        ) as any[]
+                      ).reduce<
+                        Record<
+                          string,
+                          {
+                            domain: string;
+                            companyName: string;
+                            userCount: number;
+                          }
+                        >
+                      >((acc, u) => {
+                        if (!formalDomains.has(u.domain)) {
+                          if (!acc[u.domain])
+                            acc[u.domain] = {
+                              domain: u.domain,
+                              companyName: u.companyName,
+                              userCount: 0,
+                            };
+                          acc[u.domain].userCount += 1;
+                        }
+                        return acc;
+                      }, {}),
+                    );
+                    const total =
+                      (tenants?.length ?? 0) + tenantUserOrgs.length;
+                    return total > 0 ? (
+                      <Badge className="bg-primary/15 text-primary border border-primary/30 text-xs">
+                        {total} tenant{total !== 1 ? "s" : ""}
+                      </Badge>
+                    ) : null;
+                  })()}
                 </div>
               </CardHeader>
               <Separator className="bg-border" />
               <CardContent className="pt-4">
-                {tenantsLoading ? (
+                {tenantsLoading || tenantUsersLoading ? (
                   <div
                     data-ocid="admin.tenants.loading_state"
                     className="space-y-2"
@@ -1329,70 +1363,147 @@ export function Admin() {
                     <Skeleton className="h-14 w-full" />
                     <Skeleton className="h-14 w-full" />
                   </div>
-                ) : !tenants || tenants.length === 0 ? (
-                  <div
-                    data-ocid="admin.tenants.empty_state"
-                    className="text-center py-8 text-muted-foreground"
-                  >
-                    <Building2 className="w-8 h-8 mx-auto mb-2 opacity-30" />
-                    <p className="text-xs">No tenants yet — create one above</p>
-                  </div>
                 ) : (
-                  <div className="space-y-2" data-ocid="admin.tenants.list">
-                    {tenants.map((tenant, idx) => (
-                      <div
-                        key={tenant.id.toString()}
-                        data-ocid={`admin.tenants.item.${idx + 1}`}
-                        className="flex items-center gap-3 p-3 rounded-lg bg-muted/20 border border-border/50"
-                      >
-                        <div className="w-8 h-8 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
-                          <Building2 className="w-4 h-4 text-primary" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <p className="text-sm font-medium text-foreground truncate">
-                              {tenant.name}
-                            </p>
-                            {(riskCountByTenant[tenant.id.toString()] ?? 0) >
-                              0 && (
-                              <Badge className="text-[10px] bg-primary/15 text-primary border-primary/30 shrink-0">
-                                {riskCountByTenant[tenant.id.toString()]} risk
-                                {riskCountByTenant[tenant.id.toString()] !== 1
-                                  ? "s"
-                                  : ""}
-                              </Badge>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-1.5 mt-0.5">
-                            <Globe className="w-3 h-3 text-muted-foreground shrink-0" />
-                            <p className="text-xs text-muted-foreground truncate">
-                              {tenant.domain}
-                            </p>
-                            <span className="text-muted-foreground/40 text-xs">
-                              ·
-                            </span>
-                            <p className="text-xs text-muted-foreground truncate">
-                              Created {formatDate(tenant.createdAt)}
-                            </p>
-                          </div>
-                        </div>
-                        <Button
-                          data-ocid={`admin.tenants.delete_button.${idx + 1}`}
-                          size="sm"
-                          variant="ghost"
-                          className="h-7 w-7 p-0 text-muted-foreground hover:text-red-400 hover:bg-red-500/10 shrink-0"
-                          disabled={deleteTenant.isPending}
-                          onClick={() => deleteTenant.mutate(tenant.id)}
+                  (() => {
+                    const formalDomains = new Set(
+                      (tenants ?? []).map((t: any) => t.domain),
+                    );
+                    const tenantUserOrgs = Object.values(
+                      (
+                        (tenantUsers ?? []).filter(
+                          (u: any) => u.approved,
+                        ) as any[]
+                      ).reduce<
+                        Record<
+                          string,
+                          {
+                            domain: string;
+                            companyName: string;
+                            userCount: number;
+                          }
                         >
-                          {deleteTenant.isPending ? (
-                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          ) : (
-                            <Trash2 className="w-3.5 h-3.5" />
-                          )}
-                        </Button>
+                      >((acc, u) => {
+                        if (!formalDomains.has(u.domain)) {
+                          if (!acc[u.domain])
+                            acc[u.domain] = {
+                              domain: u.domain,
+                              companyName: u.companyName,
+                              userCount: 0,
+                            };
+                          acc[u.domain].userCount += 1;
+                        }
+                        return acc;
+                      }, {}),
+                    );
+                    const hasTenants =
+                      (tenants && tenants.length > 0) ||
+                      tenantUserOrgs.length > 0;
+                    if (!hasTenants)
+                      return (
+                        <div
+                          data-ocid="admin.tenants.empty_state"
+                          className="text-center py-8 text-muted-foreground"
+                        >
+                          <Building2 className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                          <p className="text-xs">
+                            No tenants yet — create one above
+                          </p>
+                        </div>
+                      );
+                    return (
+                      <div className="space-y-2" data-ocid="admin.tenants.list">
+                        {(tenants ?? []).map((tenant: any, idx: number) => (
+                          <div
+                            key={tenant.id.toString()}
+                            data-ocid={`admin.tenants.item.${idx + 1}`}
+                            className="flex items-center gap-3 p-3 rounded-lg bg-muted/20 border border-border/50"
+                          >
+                            <div className="w-8 h-8 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
+                              <Building2 className="w-4 h-4 text-primary" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <p className="text-sm font-medium text-foreground truncate">
+                                  {tenant.name}
+                                </p>
+                                {(riskCountByTenant[tenant.id.toString()] ??
+                                  0) > 0 && (
+                                  <Badge className="text-[10px] bg-primary/15 text-primary border-primary/30 shrink-0">
+                                    {riskCountByTenant[tenant.id.toString()]}{" "}
+                                    risk
+                                    {riskCountByTenant[tenant.id.toString()] !==
+                                    1
+                                      ? "s"
+                                      : ""}
+                                  </Badge>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-1.5 mt-0.5">
+                                <Globe className="w-3 h-3 text-muted-foreground shrink-0" />
+                                <p className="text-xs text-muted-foreground truncate">
+                                  {tenant.domain}
+                                </p>
+                                <span className="text-muted-foreground/40 text-xs">
+                                  ·
+                                </span>
+                                <p className="text-xs text-muted-foreground truncate">
+                                  Created {formatDate(tenant.createdAt)}
+                                </p>
+                              </div>
+                            </div>
+                            <Button
+                              data-ocid={`admin.tenants.delete_button.${idx + 1}`}
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 w-7 p-0 text-muted-foreground hover:text-red-400 hover:bg-red-500/10 shrink-0"
+                              disabled={deleteTenant.isPending}
+                              onClick={() => deleteTenant.mutate(tenant.id)}
+                            >
+                              {deleteTenant.isPending ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              ) : (
+                                <Trash2 className="w-3.5 h-3.5" />
+                              )}
+                            </Button>
+                          </div>
+                        ))}
+                        {tenantUserOrgs.map((org, idx) => (
+                          <div
+                            key={org.domain}
+                            data-ocid={`admin.tenants.signup_org.${idx + 1}`}
+                            className="flex items-center gap-3 p-3 rounded-lg bg-emerald-500/5 border border-emerald-500/20"
+                          >
+                            <div className="w-8 h-8 rounded-md bg-emerald-500/10 flex items-center justify-center shrink-0">
+                              <Building2 className="w-4 h-4 text-emerald-400" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <p className="text-sm font-medium text-foreground truncate">
+                                  {org.companyName}
+                                </p>
+                                <Badge className="text-[10px] bg-emerald-500/15 text-emerald-300 border-emerald-500/30 shrink-0">
+                                  {org.userCount} user
+                                  {org.userCount !== 1 ? "s" : ""}
+                                </Badge>
+                              </div>
+                              <div className="flex items-center gap-1.5 mt-0.5">
+                                <Globe className="w-3 h-3 text-muted-foreground shrink-0" />
+                                <p className="text-xs text-muted-foreground truncate">
+                                  {org.domain}
+                                </p>
+                                <span className="text-muted-foreground/40 text-xs">
+                                  ·
+                                </span>
+                                <p className="text-xs text-emerald-400/70 truncate">
+                                  via tenant signup
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
+                    );
+                  })()
                 )}
               </CardContent>
             </Card>

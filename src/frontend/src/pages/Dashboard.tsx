@@ -15,12 +15,15 @@ import { motion } from "motion/react";
 import { useMemo } from "react";
 import type { Page } from "../App";
 import { RiskLevel, RiskStatus } from "../backend";
+import { useTenantUser } from "../contexts/TenantUserContext";
 import {
   useComplianceScores,
   useDocuments,
   useGovernanceItems,
+  useGovernanceItemsAsTenantUser,
   useRiskStats,
   useRisks,
+  useRisksAsTenantUser,
 } from "../hooks/useQueries";
 
 function riskLevelColor(level: RiskLevel) {
@@ -69,11 +72,28 @@ function govCategoryLabel(cat: string) {
 export function Dashboard({
   onNavigate,
 }: { onNavigate: (page: Page) => void }) {
-  const { data: risks, isLoading: risksLoading } = useRisks();
+  const { tenantUser } = useTenantUser();
+  const isTenantUser = !!tenantUser;
+
+  // Risk data - tenant users get isolated risks; admin/II users get all risks
+  const { data: risksII, isLoading: risksIILoading } = useRisks();
+  const { data: risksTU, isLoading: risksTULoading } = useRisksAsTenantUser(
+    isTenantUser ? tenantUser!.id : null,
+  );
+  const risks = isTenantUser ? risksTU : risksII;
+  const risksLoading = isTenantUser ? risksTULoading : risksIILoading;
+
   const { data: riskStats } = useRiskStats();
   const { data: complianceScores, isLoading: scoresLoading } =
     useComplianceScores();
-  const { data: govItems, isLoading: govLoading } = useGovernanceItems();
+
+  // Governance data - tenant users get isolated items
+  const { data: govItemsII, isLoading: govLoadingII } = useGovernanceItems();
+  const { data: govItemsTU, isLoading: govLoadingTU } =
+    useGovernanceItemsAsTenantUser(isTenantUser ? tenantUser!.id : null);
+  const govItems = isTenantUser ? govItemsTU : govItemsII;
+  const govLoading = isTenantUser ? govLoadingTU : govLoadingII;
+
   const { data: documents } = useDocuments();
 
   const criticalRisks = useMemo(() => {
@@ -112,23 +132,34 @@ export function Dashboard({
   }, [govItems]);
 
   const riskLevelCounts = useMemo(() => {
-    if (!riskStats) return [];
     const order = [
       RiskLevel.critical,
       RiskLevel.high,
       RiskLevel.medium,
       RiskLevel.low,
     ];
+    if (isTenantUser) {
+      // Compute from tenant-filtered risks array
+      return order.map((level) => ({
+        level,
+        count: (risks ?? []).filter((r) => r.riskLevel === level).length,
+      }));
+    }
+    if (!riskStats) return [];
     return order.map((level) => {
       const entry = riskStats.byLevel.find(([l]) => l === level);
       return { level, count: entry ? Number(entry[1]) : 0 };
     });
-  }, [riskStats]);
+  }, [riskStats, risks, isTenantUser]);
 
   const statCards = [
     {
       label: "Total Risks",
-      value: riskStats ? Number(riskStats.total) : 0,
+      value: isTenantUser
+        ? (risks ?? []).length
+        : riskStats
+          ? Number(riskStats.total)
+          : 0,
       icon: AlertTriangle,
       color: "text-primary",
       bg: "bg-primary/10",
@@ -339,7 +370,7 @@ export function Dashboard({
                     </div>
                   ))}
 
-              {!risksLoading && riskStats && (
+              {!risksLoading && (isTenantUser ? true : !!riskStats) && (
                 <div className="pt-2 border-t border-border">
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-muted-foreground">
@@ -354,7 +385,17 @@ export function Dashboard({
                       Avg Residual Score
                     </span>
                     <span className="text-xs font-semibold text-foreground">
-                      {Number(riskStats.avgResidualScore)}
+                      {isTenantUser
+                        ? (risks ?? []).length === 0
+                          ? 0
+                          : Math.round(
+                              (risks ?? []).reduce(
+                                (sum, r) =>
+                                  sum + Number(r.residualRiskScore ?? 0),
+                                0,
+                              ) / (risks ?? []).length,
+                            )
+                        : Number(riskStats?.avgResidualScore ?? 0)}
                     </span>
                   </div>
                 </div>
