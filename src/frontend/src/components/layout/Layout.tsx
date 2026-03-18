@@ -20,17 +20,21 @@ import {
 import { AnimatePresence, motion } from "motion/react";
 import { useState } from "react";
 import type { Page } from "../../App";
-import cybxsanLogo from "../../assets/cybxsan-logo.png";
 import { UserRole } from "../../backend";
 import { useTheme } from "../../contexts/ThemeContext";
 import { useActor } from "../../hooks/useActor";
 import { useInternetIdentity } from "../../hooks/useInternetIdentity";
 import { useCallerRole, useIsAdmin } from "../../hooks/useQueries";
+import { WordMark } from "../WordMark";
 
 interface LayoutProps {
   currentPage: Page;
   onNavigate: (page: Page) => void;
   children: React.ReactNode;
+  /** Present when a tenant user (email/password) is logged in instead of Internet Identity */
+  tenantUser?: Record<string, string> | null;
+  /** Called when the tenant user signs out */
+  onTenantLogout?: () => void;
 }
 
 const roleBadgeStyles: Record<UserRole, string> = {
@@ -57,7 +61,13 @@ function useCallerProfile() {
   });
 }
 
-export function Layout({ currentPage, onNavigate, children }: LayoutProps) {
+export function Layout({
+  currentPage,
+  onNavigate,
+  children,
+  tenantUser,
+  onTenantLogout,
+}: LayoutProps) {
   const { identity, login, clear, isLoggingIn } = useInternetIdentity();
   const queryClient = useQueryClient();
   const { data: isAdmin } = useIsAdmin();
@@ -68,12 +78,19 @@ export function Layout({ currentPage, onNavigate, children }: LayoutProps) {
   const [desktopSidebarOpen, setDesktopSidebarOpen] = useState(true);
 
   const isAuthenticated = !!identity;
+  const isTenantMode = !!tenantUser;
   const isDark = theme === "dark";
-  const displayEmail = callerProfile?.email || null;
+  const displayEmail = isTenantMode
+    ? (tenantUser?.email ?? null)
+    : (callerProfile?.email ?? null);
 
   const handleLogout = async () => {
-    await clear();
-    queryClient.clear();
+    if (isTenantMode && onTenantLogout) {
+      onTenantLogout();
+    } else {
+      await clear();
+      queryClient.clear();
+    }
     setMobileOpen(false);
   };
 
@@ -123,6 +140,10 @@ export function Layout({ currentPage, onNavigate, children }: LayoutProps) {
   ];
 
   const getNavItems = () => {
+    if (isTenantMode) {
+      // Tenant users get access to most pages but not admin
+      return allNavItems.filter((item) => item.minRole !== "admin");
+    }
     const currentRole = role ?? UserRole.guest;
     return allNavItems.filter((item) => {
       if (item.minRole === "guest") return true;
@@ -136,25 +157,38 @@ export function Layout({ currentPage, onNavigate, children }: LayoutProps) {
 
   const navItems = getNavItems();
 
-  const roleLabel = role
-    ? role.charAt(0).toUpperCase() + role.slice(1)
-    : "Guest";
-  const roleBadgeClass = role
+  const tenantRoleLabel = tenantUser?.role
+    ? tenantUser.role.charAt(0).toUpperCase() + tenantUser.role.slice(1)
+    : "User";
+
+  const roleLabel = isTenantMode
+    ? tenantRoleLabel
+    : role
+      ? role.charAt(0).toUpperCase() + role.slice(1)
+      : "Guest";
+
+  const roleBadgeClass = isTenantMode
     ? isDark
-      ? roleBadgeStyles[role]
-      : roleBadgeStylesLight[role]
-    : isDark
-      ? roleBadgeStyles[UserRole.guest]
-      : roleBadgeStylesLight[UserRole.guest];
+      ? "bg-cyan-500/20 text-cyan-300 border-cyan-500/40"
+      : "bg-cyan-100 text-cyan-700 border-cyan-300"
+    : role
+      ? isDark
+        ? roleBadgeStyles[role]
+        : roleBadgeStylesLight[role]
+      : isDark
+        ? roleBadgeStyles[UserRole.guest]
+        : roleBadgeStylesLight[UserRole.guest];
 
   const SidebarContent = () => (
     <>
-      <div className="px-5 py-4 border-b border-sidebar-border">
-        <img
-          src={cybxsanLogo}
-          alt="CybXSan Logo"
-          className="h-12 w-auto object-contain"
-        />
+      {/* Sidebar header wordmark */}
+      <div className="px-4 py-3 border-b border-sidebar-border">
+        <WordMark size="sm" />
+        {isTenantMode && tenantUser?.companyName && (
+          <p className="text-[10px] text-cyan-400/70 mt-0.5 truncate">
+            {tenantUser.companyName}
+          </p>
+        )}
       </div>
 
       <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
@@ -192,13 +226,13 @@ export function Layout({ currentPage, onNavigate, children }: LayoutProps) {
       </nav>
 
       <div className="px-3 pb-4 border-t border-sidebar-border pt-4">
-        {isAuthenticated ? (
+        {isAuthenticated || isTenantMode ? (
           <div className="space-y-2">
             <div className="px-3 py-2.5 rounded-lg bg-sidebar-accent">
               <div className="flex items-center gap-2 mb-1">
                 <Shield className="w-3.5 h-3.5 text-primary shrink-0" />
                 <span className="text-xs font-medium text-sidebar-accent-foreground truncate max-w-[120px]">
-                  {displayEmail ?? "Signed In"}
+                  {displayEmail ?? (isTenantMode ? "Tenant User" : "Signed In")}
                 </span>
                 <Badge
                   className={`ml-auto text-[10px] border py-0 px-1.5 shrink-0 ${roleBadgeClass}`}
@@ -207,11 +241,13 @@ export function Layout({ currentPage, onNavigate, children }: LayoutProps) {
                 </Badge>
               </div>
               <p className="text-[11px] text-sidebar-foreground/60 truncate">
-                {role === UserRole.admin
-                  ? "Full platform access"
-                  : role === UserRole.user
-                    ? "Standard access"
-                    : "Limited access"}
+                {isTenantMode
+                  ? `${tenantUser?.companyName ?? "Tenant"} organization`
+                  : role === UserRole.admin
+                    ? "Full platform access"
+                    : role === UserRole.user
+                      ? "Standard access"
+                      : "Limited access"}
               </p>
             </div>
             <Button
@@ -284,7 +320,6 @@ export function Layout({ currentPage, onNavigate, children }: LayoutProps) {
             data-ocid="nav.sidebar.toggle"
             className="text-muted-foreground hover:text-foreground transition-colors"
             onClick={() => {
-              // Mobile: toggle drawer; desktop: toggle collapsed sidebar
               if (window.innerWidth < 768) {
                 setMobileOpen(!mobileOpen);
               } else {
@@ -300,16 +335,17 @@ export function Layout({ currentPage, onNavigate, children }: LayoutProps) {
             )}
           </button>
 
-          <div className="flex-1">
-            <img
-              src={cybxsanLogo}
-              alt="CybXSan Logo"
-              className="h-9 w-auto object-contain"
-            />
-          </div>
+          {/* Wordmark in topbar (visible when sidebar is collapsed) */}
+          {!desktopSidebarOpen && (
+            <div className="hidden md:block">
+              <WordMark size="sm" />
+            </div>
+          )}
+
+          <div className="flex-1" />
 
           <div className="flex items-center gap-3">
-            {isAuthenticated && (
+            {(isAuthenticated || isTenantMode) && (
               <div className="hidden sm:flex items-center gap-2">
                 <Badge
                   data-ocid="nav.role.toggle"
@@ -320,7 +356,8 @@ export function Layout({ currentPage, onNavigate, children }: LayoutProps) {
                 <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-muted/40 px-2.5 py-1.5 rounded-md">
                   <Shield className="w-3.5 h-3.5 text-primary" />
                   <span className="max-w-[160px] truncate">
-                    {displayEmail ?? "Signed In"}
+                    {displayEmail ??
+                      (isTenantMode ? "Tenant User" : "Signed In")}
                   </span>
                 </div>
               </div>

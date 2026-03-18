@@ -4,7 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, LogOut, Mail, ShieldCheck } from "lucide-react";
 import { motion } from "motion/react";
 import { useState } from "react";
-import cybxsanLogo from "../assets/cybxsan-logo.png";
+import { WordMark } from "../components/WordMark";
 import { useActor } from "../hooks/useActor";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
 
@@ -80,26 +80,20 @@ export function ClaimAdmin() {
         transition={{ duration: 0.5, ease: "easeOut" }}
         className="w-full max-w-md z-10"
       >
-        {/* Logo */}
+        {/* Wordmark */}
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.5, delay: 0.1 }}
           className="text-center mb-8"
         >
-          <div className="flex items-center justify-center mx-auto mb-4">
-            <div className="p-1 rounded-2xl login-logo-ring">
-              <img
-                src={cybxsanLogo}
-                alt="CybXSan Logo"
-                className="h-16 w-auto object-contain rounded-xl"
-              />
-            </div>
+          <div className="mb-1">
+            <WordMark size="lg" />
           </div>
-          <h1 className="font-display text-2xl font-bold login-title-gradient">
+          <h2 className="text-base font-semibold text-slate-300 mt-1">
             Admin Access
-          </h1>
-          <p className="text-sm text-slate-400 mt-1">
+          </h2>
+          <p className="text-sm text-slate-400 mt-0.5">
             Verify your identity to activate administrator privileges
           </p>
         </motion.div>

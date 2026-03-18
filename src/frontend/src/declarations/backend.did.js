@@ -137,6 +137,16 @@ export const ComplianceScores = IDL.Record({
   'score' : IDL.Nat,
   'implemented' : IDL.Nat,
 });
+export const GovAttachmentMeta = IDL.Record({
+  'blobUrl' : IDL.Text,
+  'fileName' : IDL.Text,
+  'fileSize' : IDL.Nat,
+  'uploadedAt' : IDL.Int,
+});
+export const GovFrameworkMapping = IDL.Record({
+  'frameworkName' : IDL.Text,
+  'frameworkId' : IDL.Nat,
+});
 export const GovernanceStatus = IDL.Variant({
   'active' : IDL.Null,
   'underReview' : IDL.Null,
@@ -203,6 +213,30 @@ export const RiskStats = IDL.Record({
   'avgInherentScore' : IDL.Nat,
   'byStatus' : IDL.Vec(IDL.Tuple(RiskStatus, IDL.Nat)),
 });
+export const SSOConfig = IDL.Record({
+  'idpIssuerUrl' : IDL.Text,
+  'idpClientId' : IDL.Text,
+  'allowedDomains' : IDL.Vec(IDL.Text),
+  'enabled' : IDL.Bool,
+  'notes' : IDL.Text,
+  'idpName' : IDL.Text,
+  'requireDomainWhitelist' : IDL.Bool,
+});
+export const TenantOrg = IDL.Record({
+  'id' : IDL.Text,
+  'domain' : IDL.Text,
+  'createdAt' : IDL.Int,
+  'companyName' : IDL.Text,
+});
+export const UploadedDocumentMeta = IDL.Record({
+  'id' : IDL.Nat,
+  'title' : IDL.Text,
+  'blobUrl' : IDL.Text,
+  'fileName' : IDL.Text,
+  'fileSize' : IDL.Nat,
+  'uploadedAt' : IDL.Int,
+  'clauseNumber' : IDL.Text,
+});
 export const ApprovalStatus = IDL.Variant({
   'pending' : IDL.Null,
   'approved' : IDL.Null,
@@ -211,6 +245,46 @@ export const ApprovalStatus = IDL.Variant({
 export const UserApprovalInfo = IDL.Record({
   'status' : ApprovalStatus,
   'principal' : IDL.Principal,
+});
+export const TenantUser = IDL.Record({
+  'id' : IDL.Text,
+  'domain' : IDL.Text,
+  'createdAt' : IDL.Int,
+  'role' : IDL.Text,
+  'fullName' : IDL.Text,
+  'email' : IDL.Text,
+  'approved' : IDL.Bool,
+  'companyName' : IDL.Text,
+  'passwordHash' : IDL.Text,
+});
+export const UserRegistrationInput = IDL.Record({
+  'domain' : IDL.Text,
+  'password' : IDL.Text,
+  'fullName' : IDL.Text,
+  'email' : IDL.Text,
+  'companyName' : IDL.Text,
+});
+export const RegistrationResult = IDL.Variant({
+  'ok' : IDL.Null,
+  'userAlreadyExists' : IDL.Null,
+  'invalidInput' : IDL.Null,
+  'domainAlreadyRegistered' : IDL.Null,
+});
+export const TenantUserLoginResponse = IDL.Record({
+  'id' : IDL.Text,
+  'domain' : IDL.Text,
+  'role' : IDL.Text,
+  'fullName' : IDL.Text,
+  'email' : IDL.Text,
+  'companyName' : IDL.Text,
+});
+export const TenantLoginResult = IDL.Variant({
+  'ok' : TenantUserLoginResponse,
+  'invalidEmail' : IDL.Null,
+  'userNotFound' : IDL.Null,
+  'invalidPassword' : IDL.Null,
+  'internalError' : IDL.Null,
+  'notApproved' : IDL.Null,
 });
 export const UpdateComplianceControlInput = IDL.Record({
   'id' : IDL.Nat,
@@ -275,6 +349,12 @@ export const idlService = IDL.Service({
     ),
   '_caffeineStorageUpdateGatewayPrincipals' : IDL.Func([], [], []),
   '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
+  'addUploadedDocument' : IDL.Func(
+      [IDL.Text, IDL.Text, IDL.Text, IDL.Nat, IDL.Text],
+      [IDL.Nat],
+      [],
+    ),
+  'approveTenantUser' : IDL.Func([IDL.Text], [], []),
   'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
   'assignUserToTenant' : IDL.Func([IDL.Principal, IDL.Nat], [], []),
   'createComplianceControl' : IDL.Func(
@@ -285,9 +365,12 @@ export const idlService = IDL.Service({
   'createGovernanceItem' : IDL.Func([CreateGovernanceItemInput], [IDL.Nat], []),
   'createRisk' : IDL.Func([CreateRiskInput], [IDL.Nat], []),
   'createTenant' : IDL.Func([TenantCreateInput], [IDL.Nat], []),
+  'deleteGovernanceAttachment' : IDL.Func([IDL.Nat], [], []),
+  'deleteGovernanceFrameworkMapping' : IDL.Func([IDL.Nat], [], []),
   'deleteGovernanceItem' : IDL.Func([IDL.Nat], [], []),
   'deleteRisk' : IDL.Func([IDL.Nat], [], []),
   'deleteTenant' : IDL.Func([IDL.Nat], [], []),
+  'deleteUploadedDocument' : IDL.Func([IDL.Nat], [], []),
   'getCallerTenant' : IDL.Func([], [IDL.Opt(Tenant)], ['query']),
   'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
   'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
@@ -302,12 +385,34 @@ export const idlService = IDL.Service({
       ['query'],
     ),
   'getComplianceScores' : IDL.Func([], [IDL.Vec(ComplianceScores)], ['query']),
+  'getGovernanceAttachment' : IDL.Func(
+      [IDL.Nat],
+      [IDL.Opt(GovAttachmentMeta)],
+      ['query'],
+    ),
+  'getGovernanceAttachments' : IDL.Func(
+      [],
+      [IDL.Vec(IDL.Tuple(IDL.Nat, GovAttachmentMeta))],
+      ['query'],
+    ),
+  'getGovernanceFrameworkMappings' : IDL.Func(
+      [],
+      [IDL.Vec(IDL.Tuple(IDL.Nat, GovFrameworkMapping))],
+      ['query'],
+    ),
   'getGovernanceItems' : IDL.Func([], [IDL.Vec(GovernanceItem)], ['query']),
   'getGovernanceSummary' : IDL.Func([], [GovernanceSummary], ['query']),
   'getRiskById' : IDL.Func([IDL.Nat], [IDL.Opt(RiskItem)], ['query']),
   'getRiskStats' : IDL.Func([], [RiskStats], ['query']),
   'getRisks' : IDL.Func([], [IDL.Vec(RiskItem)], ['query']),
   'getRisksByTenant' : IDL.Func([IDL.Nat], [IDL.Vec(RiskItem)], ['query']),
+  'getSSOConfig' : IDL.Func([], [SSOConfig], ['query']),
+  'getTenantOrg' : IDL.Func([IDL.Text], [IDL.Opt(TenantOrg)], ['query']),
+  'getUploadedDocuments' : IDL.Func(
+      [],
+      [IDL.Vec(UploadedDocumentMeta)],
+      ['query'],
+    ),
   'getUserProfile' : IDL.Func(
       [IDL.Principal],
       [IDL.Opt(UserProfile)],
@@ -316,13 +421,32 @@ export const idlService = IDL.Service({
   'getUserTenant' : IDL.Func([IDL.Principal], [IDL.Opt(Tenant)], ['query']),
   'initializeGRCData' : IDL.Func([], [], []),
   'initializeISMSRepository' : IDL.Func([], [], []),
+  'isAdminAssigned' : IDL.Func([], [IDL.Bool], ['query']),
   'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
   'isCallerApproved' : IDL.Func([], [IDL.Bool], ['query']),
   'listApprovals' : IDL.Func([], [IDL.Vec(UserApprovalInfo)], ['query']),
+  'listTenantUsers' : IDL.Func([], [IDL.Vec(TenantUser)], ['query']),
   'listTenants' : IDL.Func([], [IDL.Vec(Tenant)], ['query']),
+  'registerTenantUser' : IDL.Func(
+      [UserRegistrationInput],
+      [RegistrationResult],
+      [],
+    ),
   'requestApproval' : IDL.Func([], [], []),
   'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
   'setApproval' : IDL.Func([IDL.Principal, ApprovalStatus], [], []),
+  'setGovernanceAttachment' : IDL.Func(
+      [IDL.Nat, IDL.Text, IDL.Nat, IDL.Text],
+      [],
+      [],
+    ),
+  'setGovernanceFrameworkMapping' : IDL.Func(
+      [IDL.Nat, IDL.Nat, IDL.Text],
+      [],
+      [],
+    ),
+  'setSSOConfig' : IDL.Func([SSOConfig], [], []),
+  'tenantLogin' : IDL.Func([IDL.Text, IDL.Text], [TenantLoginResult], []),
   'updateComplianceControl' : IDL.Func(
       [UpdateComplianceControlInput],
       [ComplianceControl],
@@ -468,6 +592,16 @@ export const idlFactory = ({ IDL }) => {
     'score' : IDL.Nat,
     'implemented' : IDL.Nat,
   });
+  const GovAttachmentMeta = IDL.Record({
+    'blobUrl' : IDL.Text,
+    'fileName' : IDL.Text,
+    'fileSize' : IDL.Nat,
+    'uploadedAt' : IDL.Int,
+  });
+  const GovFrameworkMapping = IDL.Record({
+    'frameworkName' : IDL.Text,
+    'frameworkId' : IDL.Nat,
+  });
   const GovernanceStatus = IDL.Variant({
     'active' : IDL.Null,
     'underReview' : IDL.Null,
@@ -534,6 +668,30 @@ export const idlFactory = ({ IDL }) => {
     'avgInherentScore' : IDL.Nat,
     'byStatus' : IDL.Vec(IDL.Tuple(RiskStatus, IDL.Nat)),
   });
+  const SSOConfig = IDL.Record({
+    'idpIssuerUrl' : IDL.Text,
+    'idpClientId' : IDL.Text,
+    'allowedDomains' : IDL.Vec(IDL.Text),
+    'enabled' : IDL.Bool,
+    'notes' : IDL.Text,
+    'idpName' : IDL.Text,
+    'requireDomainWhitelist' : IDL.Bool,
+  });
+  const TenantOrg = IDL.Record({
+    'id' : IDL.Text,
+    'domain' : IDL.Text,
+    'createdAt' : IDL.Int,
+    'companyName' : IDL.Text,
+  });
+  const UploadedDocumentMeta = IDL.Record({
+    'id' : IDL.Nat,
+    'title' : IDL.Text,
+    'blobUrl' : IDL.Text,
+    'fileName' : IDL.Text,
+    'fileSize' : IDL.Nat,
+    'uploadedAt' : IDL.Int,
+    'clauseNumber' : IDL.Text,
+  });
   const ApprovalStatus = IDL.Variant({
     'pending' : IDL.Null,
     'approved' : IDL.Null,
@@ -542,6 +700,46 @@ export const idlFactory = ({ IDL }) => {
   const UserApprovalInfo = IDL.Record({
     'status' : ApprovalStatus,
     'principal' : IDL.Principal,
+  });
+  const TenantUser = IDL.Record({
+    'id' : IDL.Text,
+    'domain' : IDL.Text,
+    'createdAt' : IDL.Int,
+    'role' : IDL.Text,
+    'fullName' : IDL.Text,
+    'email' : IDL.Text,
+    'approved' : IDL.Bool,
+    'companyName' : IDL.Text,
+    'passwordHash' : IDL.Text,
+  });
+  const UserRegistrationInput = IDL.Record({
+    'domain' : IDL.Text,
+    'password' : IDL.Text,
+    'fullName' : IDL.Text,
+    'email' : IDL.Text,
+    'companyName' : IDL.Text,
+  });
+  const RegistrationResult = IDL.Variant({
+    'ok' : IDL.Null,
+    'userAlreadyExists' : IDL.Null,
+    'invalidInput' : IDL.Null,
+    'domainAlreadyRegistered' : IDL.Null,
+  });
+  const TenantUserLoginResponse = IDL.Record({
+    'id' : IDL.Text,
+    'domain' : IDL.Text,
+    'role' : IDL.Text,
+    'fullName' : IDL.Text,
+    'email' : IDL.Text,
+    'companyName' : IDL.Text,
+  });
+  const TenantLoginResult = IDL.Variant({
+    'ok' : TenantUserLoginResponse,
+    'invalidEmail' : IDL.Null,
+    'userNotFound' : IDL.Null,
+    'invalidPassword' : IDL.Null,
+    'internalError' : IDL.Null,
+    'notApproved' : IDL.Null,
   });
   const UpdateComplianceControlInput = IDL.Record({
     'id' : IDL.Nat,
@@ -606,6 +804,12 @@ export const idlFactory = ({ IDL }) => {
       ),
     '_caffeineStorageUpdateGatewayPrincipals' : IDL.Func([], [], []),
     '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
+    'addUploadedDocument' : IDL.Func(
+        [IDL.Text, IDL.Text, IDL.Text, IDL.Nat, IDL.Text],
+        [IDL.Nat],
+        [],
+      ),
+    'approveTenantUser' : IDL.Func([IDL.Text], [], []),
     'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
     'assignUserToTenant' : IDL.Func([IDL.Principal, IDL.Nat], [], []),
     'createComplianceControl' : IDL.Func(
@@ -620,9 +824,12 @@ export const idlFactory = ({ IDL }) => {
       ),
     'createRisk' : IDL.Func([CreateRiskInput], [IDL.Nat], []),
     'createTenant' : IDL.Func([TenantCreateInput], [IDL.Nat], []),
+    'deleteGovernanceAttachment' : IDL.Func([IDL.Nat], [], []),
+    'deleteGovernanceFrameworkMapping' : IDL.Func([IDL.Nat], [], []),
     'deleteGovernanceItem' : IDL.Func([IDL.Nat], [], []),
     'deleteRisk' : IDL.Func([IDL.Nat], [], []),
     'deleteTenant' : IDL.Func([IDL.Nat], [], []),
+    'deleteUploadedDocument' : IDL.Func([IDL.Nat], [], []),
     'getCallerTenant' : IDL.Func([], [IDL.Opt(Tenant)], ['query']),
     'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
     'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
@@ -641,12 +848,34 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Vec(ComplianceScores)],
         ['query'],
       ),
+    'getGovernanceAttachment' : IDL.Func(
+        [IDL.Nat],
+        [IDL.Opt(GovAttachmentMeta)],
+        ['query'],
+      ),
+    'getGovernanceAttachments' : IDL.Func(
+        [],
+        [IDL.Vec(IDL.Tuple(IDL.Nat, GovAttachmentMeta))],
+        ['query'],
+      ),
+    'getGovernanceFrameworkMappings' : IDL.Func(
+        [],
+        [IDL.Vec(IDL.Tuple(IDL.Nat, GovFrameworkMapping))],
+        ['query'],
+      ),
     'getGovernanceItems' : IDL.Func([], [IDL.Vec(GovernanceItem)], ['query']),
     'getGovernanceSummary' : IDL.Func([], [GovernanceSummary], ['query']),
     'getRiskById' : IDL.Func([IDL.Nat], [IDL.Opt(RiskItem)], ['query']),
     'getRiskStats' : IDL.Func([], [RiskStats], ['query']),
     'getRisks' : IDL.Func([], [IDL.Vec(RiskItem)], ['query']),
     'getRisksByTenant' : IDL.Func([IDL.Nat], [IDL.Vec(RiskItem)], ['query']),
+    'getSSOConfig' : IDL.Func([], [SSOConfig], ['query']),
+    'getTenantOrg' : IDL.Func([IDL.Text], [IDL.Opt(TenantOrg)], ['query']),
+    'getUploadedDocuments' : IDL.Func(
+        [],
+        [IDL.Vec(UploadedDocumentMeta)],
+        ['query'],
+      ),
     'getUserProfile' : IDL.Func(
         [IDL.Principal],
         [IDL.Opt(UserProfile)],
@@ -655,13 +884,32 @@ export const idlFactory = ({ IDL }) => {
     'getUserTenant' : IDL.Func([IDL.Principal], [IDL.Opt(Tenant)], ['query']),
     'initializeGRCData' : IDL.Func([], [], []),
     'initializeISMSRepository' : IDL.Func([], [], []),
+    'isAdminAssigned' : IDL.Func([], [IDL.Bool], ['query']),
     'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
     'isCallerApproved' : IDL.Func([], [IDL.Bool], ['query']),
     'listApprovals' : IDL.Func([], [IDL.Vec(UserApprovalInfo)], ['query']),
+    'listTenantUsers' : IDL.Func([], [IDL.Vec(TenantUser)], ['query']),
     'listTenants' : IDL.Func([], [IDL.Vec(Tenant)], ['query']),
+    'registerTenantUser' : IDL.Func(
+        [UserRegistrationInput],
+        [RegistrationResult],
+        [],
+      ),
     'requestApproval' : IDL.Func([], [], []),
     'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
     'setApproval' : IDL.Func([IDL.Principal, ApprovalStatus], [], []),
+    'setGovernanceAttachment' : IDL.Func(
+        [IDL.Nat, IDL.Text, IDL.Nat, IDL.Text],
+        [],
+        [],
+      ),
+    'setGovernanceFrameworkMapping' : IDL.Func(
+        [IDL.Nat, IDL.Nat, IDL.Text],
+        [],
+        [],
+      ),
+    'setSSOConfig' : IDL.Func([SSOConfig], [], []),
+    'tenantLogin' : IDL.Func([IDL.Text, IDL.Text], [TenantLoginResult], []),
     'updateComplianceControl' : IDL.Func(
         [UpdateComplianceControlInput],
         [ComplianceControl],

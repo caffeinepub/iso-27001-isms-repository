@@ -1,24 +1,26 @@
-# GRC Platform
+# CybXSan GRC Platform
 
 ## Current State
-The app stores uploaded files (document repository uploads and governance attachments) in `localStorage` (browser-only). Framework mappings for governance items are also in `localStorage`. These disappear when the user clears their browser or accesses from another device.
+Uses Internet Identity for all users. No email/password login option.
 
 ## Requested Changes (Diff)
 
 ### Add
-- Backend functions to store document uploads: title, clauseNumber, fileName, fileSize, uploadedAt — with the file itself stored in blob-storage
-- Backend functions to store governance attachment metadata and the actual file in blob-storage
-- Backend functions to store governance item → compliance framework mappings persistently
-- `getUploadedDocuments` / `deleteUploadedDocument` / `getGovernanceAttachments` / `deleteGovernanceAttachment` / `getGovernanceFrameworkMappings` / `setGovernanceFrameworkMapping` / `deleteGovernanceFrameworkMapping` backend API
+- Tenant Sign Up page: full name, email, password, company name, domain
+- Tenant Login page: email and password
+- Backend: registerTenantUser, tenantLogin, stable storage for tenant users/orgs
+- Main login page: two paths (Admin via Internet Identity, Tenant via email/password)
 
 ### Modify
-- `Documents.tsx`: replace `localStorage` with backend blob-storage upload/list/delete calls
-- `Governance.tsx`: replace `localStorage` with backend blob-storage calls for file attachments and framework mappings
-- `useQueries.ts`: add hooks for blob-based document and governance attachment operations
+- main.mo: add tenant auth functions
+- App.tsx: routes for /tenant-login and /tenant-signup, tenant session state
+- Login.tsx: two-path UI
 
 ### Remove
-- All `localStorage.setItem/getItem` calls for document uploads, governance attachments, and framework mappings
+- Nothing
 
 ## Implementation Plan
-1. Generate Motoko backend with blob-storage integration and new API endpoints for document uploads, governance attachments, and framework mappings
-2. Update frontend pages to use blob-storage HTTP URLs for download and the new backend hooks
+1. Update backend with TenantUser type, stable storage, registerTenantUser, tenantLogin
+2. Add TenantLogin.tsx and TenantSignUp.tsx pages
+3. Update Login.tsx for two-path login
+4. Update App.tsx with new routes and tenant session

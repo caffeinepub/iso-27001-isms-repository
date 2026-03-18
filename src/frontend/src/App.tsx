@@ -20,6 +20,8 @@ import { Documents } from "./pages/Documents";
 import { Governance } from "./pages/Governance";
 import { Login } from "./pages/Login";
 import { RiskRegister } from "./pages/RiskRegister";
+import { TenantLogin } from "./pages/TenantLogin";
+import { TenantSignUp } from "./pages/TenantSignUp";
 import { TrustCenter } from "./pages/TrustCenter";
 import {
   clearAdminTokenFromUrl,
@@ -34,6 +36,8 @@ export type Page =
   | "governance"
   | "compliance"
   | "trustCenter";
+
+type AuthView = "main" | "tenantLogin" | "tenantSignUp";
 
 // Capture the admin token once at module load time so URL changes don't affect it.
 const INITIAL_ADMIN_TOKEN = getAdminTokenFromUrl();
@@ -66,10 +70,22 @@ function AppShell() {
   const { data: isApproved, isLoading: approvalLoading } = useIsApproved();
   const [page, setPage] = useState<Page>("dashboard");
   const [claimStatus, setClaimStatus] = useState<ClaimStatus>("idle");
+  const [authView, setAuthView] = useState<AuthView>("main");
   const claimAttempted = useRef(false);
   const initDone = useRef(false);
 
+  // Check if a tenant user is logged in via email/password
+  const [tenantUser, setTenantUser] = useState<object | null>(() => {
+    try {
+      const stored = localStorage.getItem("tenantUser");
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
+  });
+
   const isAuthenticated = !!identity;
+  const isTenantAuthenticated = !!tenantUser;
 
   // One-time data initialization
   useEffect(() => {
@@ -146,8 +162,51 @@ function AppShell() {
     return <LoadingScreen message="Loading GRC Platform..." />;
   }
 
+  // Tenant user is logged in via email/password — show dashboard directly
+  if (isTenantAuthenticated && !isAuthenticated) {
+    return (
+      <Layout
+        currentPage={page}
+        onNavigate={setPage}
+        onTenantLogout={() => {
+          localStorage.removeItem("tenantUser");
+          setTenantUser(null);
+          setAuthView("main");
+        }}
+        tenantUser={tenantUser as Record<string, string>}
+      >
+        {page === "dashboard" && <Dashboard onNavigate={setPage} />}
+        {page === "documents" && <Documents />}
+        {page === "riskRegister" && <RiskRegister />}
+        {page === "compliance" && <ComplianceStandards />}
+        {page === "governance" && <Governance />}
+        {page === "trustCenter" && <TrustCenter />}
+      </Layout>
+    );
+  }
+
   if (!isAuthenticated) {
-    return <Login />;
+    if (authView === "tenantLogin") {
+      return (
+        <TenantLogin
+          onNavigateSignUp={() => setAuthView("tenantSignUp")}
+          onNavigateBack={() => setAuthView("main")}
+          onLoginSuccess={(user) => {
+            setTenantUser(user);
+            setAuthView("main");
+          }}
+        />
+      );
+    }
+    if (authView === "tenantSignUp") {
+      return (
+        <TenantSignUp
+          onNavigateLogin={() => setAuthView("tenantLogin")}
+          onNavigateBack={() => setAuthView("main")}
+        />
+      );
+    }
+    return <Login onNavigateTenantLogin={() => setAuthView("tenantLogin")} />;
   }
 
   if (actorLoading || !actor) {

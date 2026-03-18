@@ -214,34 +214,46 @@ export function getSecretParameter(paramName: string): string | null {
 }
 
 /**
- * Gets the admin token from the URL hash fragment (#caffeineAdminToken=...) or query string.
+ * Gets the Caffeine admin token from the URL (query string or hash fragment).
+ * Supports: ?caffeineAdminToken=xxx, #caffeineAdminToken=xxx
  */
 export function getAdminTokenFromUrl(): string | null {
-  // Check hash: #caffeineAdminToken=xxx
+  // Check query string
+  const qs = new URLSearchParams(window.location.search);
+  const fromQs = qs.get("caffeineAdminToken");
+  if (fromQs) return fromQs;
+
+  // Check bare hash fragment (#caffeineAdminToken=xxx)
   const hash = window.location.hash;
-  if (hash) {
+  if (hash && hash.length > 1) {
     const hashContent = hash.startsWith("#") ? hash.substring(1) : hash;
-    const params = new URLSearchParams(hashContent);
-    const fromHash = params.get("caffeineAdminToken");
+    const hashParams = new URLSearchParams(hashContent);
+    const fromHash = hashParams.get("caffeineAdminToken");
     if (fromHash) return fromHash;
   }
-  // Check query string: ?caffeineAdminToken=xxx
-  const queryParams = new URLSearchParams(window.location.search);
-  return queryParams.get("caffeineAdminToken");
+
+  return null;
 }
 
 /**
- * Removes the caffeineAdminToken from the current URL to prevent leakage.
+ * Removes caffeineAdminToken from the URL bar without reloading.
  */
 export function clearAdminTokenFromUrl(): void {
-  clearParamFromHash("caffeineAdminToken");
-  // Also clear from query string if present
-  if (
-    window.location.search.includes("caffeineAdminToken") &&
-    window.history.replaceState
-  ) {
-    const url = new URL(window.location.href);
-    url.searchParams.delete("caffeineAdminToken");
-    window.history.replaceState(null, "", url.toString());
+  if (!window.history.replaceState) return;
+
+  // Remove from query string
+  const url = new URL(window.location.href);
+  url.searchParams.delete("caffeineAdminToken");
+
+  // Remove from hash fragment
+  const hash = window.location.hash;
+  if (hash && hash.length > 1) {
+    const hashContent = hash.startsWith("#") ? hash.substring(1) : hash;
+    const hashParams = new URLSearchParams(hashContent);
+    hashParams.delete("caffeineAdminToken");
+    const newHash = hashParams.toString();
+    url.hash = newHash ? `#${newHash}` : "";
   }
+
+  window.history.replaceState(null, "", url.toString());
 }

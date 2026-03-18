@@ -9,7 +9,7 @@ import {
   UserCheck,
 } from "lucide-react";
 import { motion } from "motion/react";
-import cybxsanLogo from "../assets/cybxsan-logo.png";
+import { WordMark } from "../components/WordMark";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
 import { useRequestApproval } from "../hooks/useQueries";
 
@@ -59,19 +59,11 @@ export function RequestAccess({
         transition={{ duration: 0.5, ease: "easeOut" }}
         className="w-full max-w-md relative z-10"
       >
-        {/* Logo */}
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.1, duration: 0.4 }}
-          className="flex justify-center mb-8"
-        >
-          <img
-            src={cybxsanLogo}
-            alt="CybXSan"
-            className="h-16 w-auto object-contain rounded-xl"
-          />
-        </motion.div>
+        {/* Wordmark */}
+        <div className="text-center mb-6">
+          <WordMark size="lg" />
+          <p className="text-xs text-muted-foreground mt-1">GRC Platform</p>
+        </div>
 
         <Card
           className="bg-card/80 backdrop-blur-sm border-2"
@@ -137,9 +129,6 @@ function NotRequestedState({
       <h1 className="font-display text-2xl font-bold text-foreground mb-2">
         Request Access
       </h1>
-      <p className="text-sm text-muted-foreground mb-1">
-        GRC Platform &middot; CybXSan
-      </p>
       <p className="text-sm text-muted-foreground/70 mb-6">
         Your account needs administrator approval to access this platform.
         Submit a request and you&apos;ll be notified once approved.

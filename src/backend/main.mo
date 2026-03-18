@@ -16,9 +16,9 @@ import Set "mo:core/Set";
 import Array "mo:core/Array";
 import VarArray "mo:core/VarArray";
 import Principal "mo:core/Principal";
+import Migration "migration";
 
-
-
+(with migration = Migration.run)
 actor {
   include MixinStorage();
 
@@ -1302,7 +1302,6 @@ actor {
     results.toArray();
   };
 
-
   // SSO Configuration
   public type SSOConfig = {
     enabled : Bool;
@@ -1336,6 +1335,170 @@ actor {
       Runtime.trap("Unauthorized: Only admins can update SSO configuration");
     };
     ssoConfig := config;
+  };
+
+  // Tenant User Registration and Login System
+  public type TenantOrg = {
+    id : Text;
+    companyName : Text;
+    domain : Text;
+    createdAt : Int;
+  };
+
+  public type UserRegistrationInput = {
+    fullName : Text;
+    email : Text;
+    password : Text;
+    companyName : Text;
+    domain : Text;
+  };
+
+  public type TenantUser = {
+    id : Text;
+    fullName : Text;
+    email : Text;
+    passwordHash : Text;
+    companyName : Text;
+    domain : Text;
+    role : Text;
+    approved : Bool;
+    createdAt : Int;
+  };
+
+  public type TenantUserLoginResponse = {
+    id : Text;
+    fullName : Text;
+    email : Text;
+    companyName : Text;
+    domain : Text;
+    role : Text;
+  };
+
+  public type RegistrationResult = {
+    #ok : ();
+    #domainAlreadyRegistered : ();
+    #userAlreadyExists : ();
+    #invalidInput : ();
+  };
+
+  public type TenantLoginResult = {
+    #ok : TenantUserLoginResponse;
+    #invalidEmail : ();
+    #invalidPassword : ();
+    #userNotFound : ();
+    #notApproved : ();
+    #internalError : ();
+  };
+
+  let tenantOrgs = Map.empty<Text, TenantOrg>();
+  let tenantUsers = Map.empty<Text, TenantUser>();
+  let tenantUsersByEmail = Map.empty<Text, TenantUser>();
+
+  var nextTenantOrgId = 1;
+  var nextTenantUserId = 1;
+
+  // Public registration endpoint - no authorization required
+  public shared ({ caller }) func registerTenantUser(input : UserRegistrationInput) : async RegistrationResult {
+    // Check if user already exists
+    switch (tenantUsersByEmail.get(input.email)) {
+      case (?_) {
+        return #userAlreadyExists;
+      };
+      case (null) {};
+    };
+
+    // Create or reuse TenantOrg
+    let tenantOrgId = switch (tenantOrgs.get(input.domain)) {
+      case (?existingOrg) {
+        existingOrg.id;
+      };
+      case (null) {
+        let newOrgId = nextTenantOrgId.toText();
+        let tenantOrg : TenantOrg = {
+          id = newOrgId;
+          companyName = input.companyName;
+          domain = input.domain;
+          createdAt = Time.now();
+        };
+        tenantOrgs.add(input.domain, tenantOrg);
+        nextTenantOrgId += 1;
+        newOrgId;
+      };
+    };
+
+    // Create tenant user
+    let userId = nextTenantUserId.toText();
+    let tenantUser : TenantUser = {
+      id = userId;
+      fullName = input.fullName;
+      email = input.email;
+      passwordHash = input.password;
+      companyName = input.companyName;
+      domain = input.domain;
+      role = "user";
+      approved = false;
+      createdAt = Time.now();
+    };
+
+    tenantUsers.add(userId, tenantUser);
+    tenantUsersByEmail.add(input.email, tenantUser);
+    nextTenantUserId += 1;
+
+    #ok;
+  };
+
+  // Public login endpoint - no authorization required
+  public shared ({ caller }) func tenantLogin(email : Text, password : Text) : async TenantLoginResult {
+    switch (tenantUsersByEmail.get(email)) {
+      case (null) {
+        #userNotFound;
+      };
+      case (?user) {
+        if (user.passwordHash != password) {
+          #invalidPassword;
+        } else if (not user.approved) {
+          #notApproved;
+        } else {
+          #ok({
+            id = user.id;
+            fullName = user.fullName;
+            email = user.email;
+            companyName = user.companyName;
+            domain = user.domain;
+            role = user.role;
+          });
+        };
+      };
+    };
+  };
+
+  // Public query - allows domain lookup during registration
+  public query ({ caller }) func getTenantOrg(domain : Text) : async ?TenantOrg {
+    tenantOrgs.get(domain);
+  };
+
+  // Admin-only function
+  public query ({ caller }) func listTenantUsers() : async [TenantUser] {
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only admins can view tenant users");
+    };
+    tenantUsers.values().toArray();
+  };
+
+  // Admin-only function
+  public shared ({ caller }) func approveTenantUser(userId : Text) : async () {
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only admins can approve tenant users");
+    };
+    
+    switch (tenantUsers.get(userId)) {
+      case (null) { Runtime.trap("User not found") };
+      case (?user) {
+        let updatedUser = { user with approved = true };
+        tenantUsers.add(userId, updatedUser);
+        tenantUsersByEmail.add(user.email, updatedUser);
+      };
+    };
   };
 
   // ── Uploaded Document Metadata (blob-storage backed) ─────────────────────

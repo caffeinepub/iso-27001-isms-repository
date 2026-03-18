@@ -41,8 +41,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 import {
   AlertTriangle,
   ChevronDown,
@@ -58,7 +56,6 @@ import {
 } from "lucide-react";
 import { motion } from "motion/react";
 import { useMemo, useState } from "react";
-import * as XLSX from "xlsx";
 import {
   type CreateRiskInput,
   MaturityLevel,
@@ -836,12 +833,20 @@ const EMPTY_FORM: CreateRiskInput = {
 
 // ── Export Functions ──────────────────────────────────────────────────────
 function exportToPDF(risks: RiskItem[]) {
-  const doc = new jsPDF();
-  doc.setFontSize(14);
-  doc.text("Risk Register Export", 14, 16);
-  doc.setFontSize(9);
-  doc.text(`Generated: ${new Date().toLocaleDateString()}`, 14, 22);
-
+  const headers = [
+    "#",
+    "Title",
+    "Threat Category",
+    "Likelihood",
+    "Impact",
+    "Inherent Score",
+    "Inherent Level",
+    "Residual Level",
+    "Status",
+    "Treatment",
+    "Owner",
+    "Due Date",
+  ];
   const rows = risks.map((r, idx) => {
     const iScore = Number(r.likelihood) * Number(r.impact);
     const iLevel = inherentRiskLevel(iScore);
@@ -872,34 +877,37 @@ function exportToPDF(risks: RiskItem[]) {
       r.dueDate || "-",
     ];
   });
-
-  autoTable(doc, {
-    startY: 28,
-    head: [
-      [
-        "#",
-        "Title",
-        "Threat Category",
-        "Likelihood",
-        "Impact",
-        "Inherent Score",
-        "Inherent Level",
-        "Residual Level",
-        "Status",
-        "Treatment",
-        "Owner",
-        "Due Date",
-      ],
-    ],
-    body: rows,
-    styles: { fontSize: 7, cellPadding: 2 },
-    headStyles: { fillColor: [30, 41, 59] },
-  });
-
-  doc.save("risk-register-export.pdf");
+  const tableRows = rows
+    .map(
+      (row) =>
+        `<tr>${row.map((cell) => `<td style="border:1px solid #ccc;padding:4px 8px;font-size:11px">${cell}`).join("")}</tr>`,
+    )
+    .join("");
+  const html = `<html><head><title>Risk Register</title><style>body{font-family:sans-serif}table{border-collapse:collapse;width:100%}th{background:#1e293b;color:#fff;padding:6px 8px;font-size:11px;border:1px solid #ccc}</style></head><body><h2 style="font-size:16px">Risk Register Export</h2><p style="font-size:11px">Generated: ${new Date().toLocaleDateString()}</p><table><thead><tr>${headers.map((h) => `<th>${h}</th>`).join("")}</tr></thead><tbody>${tableRows}</tbody></table></body></html>`;
+  const blob = new Blob([html], { type: "text/html" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "risk-register-export.html";
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 function exportToExcel(risks: RiskItem[]) {
+  const headers = [
+    "#",
+    "Title",
+    "Threat Category",
+    "Likelihood",
+    "Impact",
+    "Inherent Score",
+    "Inherent Level",
+    "Residual Level",
+    "Status",
+    "Treatment",
+    "Owner",
+    "Due Date",
+  ];
   const rows = risks.map((r, idx) => {
     const iScore = Number(r.likelihood) * Number(r.impact);
     const iLevel = inherentRiskLevel(iScore);
@@ -915,26 +923,29 @@ function exportToExcel(risks: RiskItem[]) {
       maturityForMatrix = Math.min(3, Math.max(1, Math.round(avg)));
     }
     const rLevel = residualRiskLevel(iLevel, maturityForMatrix);
-    return {
-      "#": idx + 1,
-      Title: r.title,
-      "Threat Category": r.threatCategory,
-      Likelihood: Number(r.likelihood),
-      Impact: Number(r.impact),
-      "Inherent Score": iScore,
-      "Inherent Level": iLevel.charAt(0).toUpperCase() + iLevel.slice(1),
-      "Residual Level": rLevel.charAt(0).toUpperCase() + rLevel.slice(1),
-      Status: r.status,
-      Treatment: r.treatment,
-      Owner: r.treatmentOwner || "-",
-      "Due Date": r.dueDate || "-",
-    };
+    return [
+      idx + 1,
+      r.title,
+      r.threatCategory,
+      Number(r.likelihood),
+      Number(r.impact),
+      iScore,
+      iLevel.charAt(0).toUpperCase() + iLevel.slice(1),
+      rLevel.charAt(0).toUpperCase() + rLevel.slice(1),
+      r.status,
+      r.treatment,
+      r.treatmentOwner || "-",
+      r.dueDate || "-",
+    ].join(",");
   });
-
-  const ws = XLSX.utils.json_to_sheet(rows);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "Risk Register");
-  XLSX.writeFile(wb, "risk-register-export.xlsx");
+  const csv = [headers.join(","), ...rows].join("\n");
+  const blob = new Blob([csv], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "risk-register-export.csv";
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 // ── Main Component ─────────────────────────────────────────────────────────

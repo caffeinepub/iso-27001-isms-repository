@@ -74,6 +74,16 @@ export interface CreateRiskInput {
   'likelihood' : bigint,
   'treatmentPlanTargetDate' : string,
 }
+export interface GovAttachmentMeta {
+  'blobUrl' : string,
+  'fileName' : string,
+  'fileSize' : bigint,
+  'uploadedAt' : bigint,
+}
+export interface GovFrameworkMapping {
+  'frameworkName' : string,
+  'frameworkId' : bigint,
+}
 export type GovernanceCategory = { 'actionItem' : null } |
   { 'committee' : null } |
   { 'meeting' : null } |
@@ -109,6 +119,10 @@ export interface MitigationControl {
   'maturityLevel' : MaturityLevel,
   'controlId' : string,
 }
+export type RegistrationResult = { 'ok' : null } |
+  { 'userAlreadyExists' : null } |
+  { 'invalidInput' : null } |
+  { 'domainAlreadyRegistered' : null };
 export interface RiskItem {
   'id' : bigint,
   'treatmentNotes' : string,
@@ -152,6 +166,15 @@ export type RiskTreatment = { 'accept' : null } |
   { 'avoid' : null } |
   { 'mitigate' : null } |
   { 'transfer' : null };
+export interface SSOConfig {
+  'idpIssuerUrl' : string,
+  'idpClientId' : string,
+  'allowedDomains' : Array<string>,
+  'enabled' : boolean,
+  'notes' : string,
+  'idpName' : string,
+  'requireDomainWhitelist' : boolean,
+}
 export interface Tenant {
   'id' : bigint,
   'domain' : string,
@@ -160,6 +183,37 @@ export interface Tenant {
   'createdAt' : bigint,
 }
 export interface TenantCreateInput { 'domain' : string, 'name' : string }
+export type TenantLoginResult = { 'ok' : TenantUserLoginResponse } |
+  { 'invalidEmail' : null } |
+  { 'userNotFound' : null } |
+  { 'invalidPassword' : null } |
+  { 'internalError' : null } |
+  { 'notApproved' : null };
+export interface TenantOrg {
+  'id' : string,
+  'domain' : string,
+  'createdAt' : bigint,
+  'companyName' : string,
+}
+export interface TenantUser {
+  'id' : string,
+  'domain' : string,
+  'createdAt' : bigint,
+  'role' : string,
+  'fullName' : string,
+  'email' : string,
+  'approved' : boolean,
+  'companyName' : string,
+  'passwordHash' : string,
+}
+export interface TenantUserLoginResponse {
+  'id' : string,
+  'domain' : string,
+  'role' : string,
+  'fullName' : string,
+  'email' : string,
+  'companyName' : string,
+}
 export type ThreatCategory = { 'nonHostileOutsiders' : null } |
   { 'hostileInsiders' : null } |
   { 'legal' : null } |
@@ -202,6 +256,15 @@ export interface UpdateRiskInput {
   'likelihood' : [] | [bigint],
   'treatmentPlanTargetDate' : [] | [string],
 }
+export interface UploadedDocumentMeta {
+  'id' : bigint,
+  'title' : string,
+  'blobUrl' : string,
+  'fileName' : string,
+  'fileSize' : bigint,
+  'uploadedAt' : bigint,
+  'clauseNumber' : string,
+}
 export interface UserApprovalInfo {
   'status' : ApprovalStatus,
   'principal' : Principal,
@@ -210,6 +273,13 @@ export interface UserProfile {
   'name' : string,
   'email' : string,
   'department' : string,
+}
+export interface UserRegistrationInput {
+  'domain' : string,
+  'password' : string,
+  'fullName' : string,
+  'email' : string,
+  'companyName' : string,
 }
 export type UserRole = { 'admin' : null } |
   { 'user' : null } |
@@ -242,6 +312,11 @@ export interface _SERVICE {
   >,
   '_caffeineStorageUpdateGatewayPrincipals' : ActorMethod<[], undefined>,
   '_initializeAccessControlWithSecret' : ActorMethod<[string], undefined>,
+  'addUploadedDocument' : ActorMethod<
+    [string, string, string, bigint, string],
+    bigint
+  >,
+  'approveTenantUser' : ActorMethod<[string], undefined>,
   'assignCallerUserRole' : ActorMethod<[Principal, UserRole], undefined>,
   'assignUserToTenant' : ActorMethod<[Principal, bigint], undefined>,
   'createComplianceControl' : ActorMethod<
@@ -251,32 +326,63 @@ export interface _SERVICE {
   'createGovernanceItem' : ActorMethod<[CreateGovernanceItemInput], bigint>,
   'createRisk' : ActorMethod<[CreateRiskInput], bigint>,
   'createTenant' : ActorMethod<[TenantCreateInput], bigint>,
+  'deleteGovernanceAttachment' : ActorMethod<[bigint], undefined>,
+  'deleteGovernanceFrameworkMapping' : ActorMethod<[bigint], undefined>,
   'deleteGovernanceItem' : ActorMethod<[bigint], undefined>,
   'deleteRisk' : ActorMethod<[bigint], undefined>,
   'deleteTenant' : ActorMethod<[bigint], undefined>,
+  'deleteUploadedDocument' : ActorMethod<[bigint], undefined>,
   'getCallerTenant' : ActorMethod<[], [] | [Tenant]>,
   'getCallerUserProfile' : ActorMethod<[], [] | [UserProfile]>,
   'getCallerUserRole' : ActorMethod<[], UserRole>,
   'getComplianceControls' : ActorMethod<[bigint], Array<ComplianceControl>>,
   'getComplianceFrameworks' : ActorMethod<[], Array<ComplianceFramework>>,
   'getComplianceScores' : ActorMethod<[], Array<ComplianceScores>>,
+  'getGovernanceAttachment' : ActorMethod<[bigint], [] | [GovAttachmentMeta]>,
+  'getGovernanceAttachments' : ActorMethod<
+    [],
+    Array<[bigint, GovAttachmentMeta]>
+  >,
+  'getGovernanceFrameworkMappings' : ActorMethod<
+    [],
+    Array<[bigint, GovFrameworkMapping]>
+  >,
   'getGovernanceItems' : ActorMethod<[], Array<GovernanceItem>>,
   'getGovernanceSummary' : ActorMethod<[], GovernanceSummary>,
   'getRiskById' : ActorMethod<[bigint], [] | [RiskItem]>,
   'getRiskStats' : ActorMethod<[], RiskStats>,
   'getRisks' : ActorMethod<[], Array<RiskItem>>,
   'getRisksByTenant' : ActorMethod<[bigint], Array<RiskItem>>,
+  'getSSOConfig' : ActorMethod<[], SSOConfig>,
+  'getTenantOrg' : ActorMethod<[string], [] | [TenantOrg]>,
+  'getUploadedDocuments' : ActorMethod<[], Array<UploadedDocumentMeta>>,
   'getUserProfile' : ActorMethod<[Principal], [] | [UserProfile]>,
   'getUserTenant' : ActorMethod<[Principal], [] | [Tenant]>,
   'initializeGRCData' : ActorMethod<[], undefined>,
   'initializeISMSRepository' : ActorMethod<[], undefined>,
+  'isAdminAssigned' : ActorMethod<[], boolean>,
   'isCallerAdmin' : ActorMethod<[], boolean>,
   'isCallerApproved' : ActorMethod<[], boolean>,
   'listApprovals' : ActorMethod<[], Array<UserApprovalInfo>>,
+  'listTenantUsers' : ActorMethod<[], Array<TenantUser>>,
   'listTenants' : ActorMethod<[], Array<Tenant>>,
+  'registerTenantUser' : ActorMethod<
+    [UserRegistrationInput],
+    RegistrationResult
+  >,
   'requestApproval' : ActorMethod<[], undefined>,
   'saveCallerUserProfile' : ActorMethod<[UserProfile], undefined>,
   'setApproval' : ActorMethod<[Principal, ApprovalStatus], undefined>,
+  'setGovernanceAttachment' : ActorMethod<
+    [bigint, string, bigint, string],
+    undefined
+  >,
+  'setGovernanceFrameworkMapping' : ActorMethod<
+    [bigint, bigint, string],
+    undefined
+  >,
+  'setSSOConfig' : ActorMethod<[SSOConfig], undefined>,
+  'tenantLogin' : ActorMethod<[string, string], TenantLoginResult>,
   'updateComplianceControl' : ActorMethod<
     [UpdateComplianceControlInput],
     ComplianceControl

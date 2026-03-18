@@ -19,6 +19,16 @@ export interface MitigationControl {
     maturityLevel: MaturityLevel;
     controlId: string;
 }
+export interface TenantOrg {
+    id: string;
+    domain: string;
+    createdAt: bigint;
+    companyName: string;
+}
+export interface GovFrameworkMapping {
+    frameworkName: string;
+    frameworkId: bigint;
+}
 export interface GovernanceSummary {
     total: bigint;
     byStatus: Array<[GovernanceStatus, bigint]>;
@@ -49,6 +59,14 @@ export interface RiskStats {
     byLevel: Array<[RiskLevel, bigint]>;
     avgInherentScore: bigint;
     byStatus: Array<[RiskStatus, bigint]>;
+}
+export interface TenantUserLoginResponse {
+    id: string;
+    domain: string;
+    role: string;
+    fullName: string;
+    email: string;
+    companyName: string;
 }
 export interface CreateRiskInput {
     treatmentNotes: string;
@@ -132,6 +150,15 @@ export interface RiskItem {
     riskLevel: RiskLevel;
     treatmentPlanTargetDate: string;
 }
+export interface UploadedDocumentMeta {
+    id: bigint;
+    title: string;
+    blobUrl: string;
+    fileName: string;
+    fileSize: bigint;
+    uploadedAt: bigint;
+    clauseNumber: string;
+}
 export interface ComplianceScores {
     frameworkName: string;
     total: bigint;
@@ -167,29 +194,62 @@ export interface UserApprovalInfo {
     status: ApprovalStatus;
     principal: Principal;
 }
+export interface TenantUser {
+    id: string;
+    domain: string;
+    createdAt: bigint;
+    role: string;
+    fullName: string;
+    email: string;
+    approved: boolean;
+    companyName: string;
+    passwordHash: string;
+}
+export type TenantLoginResult = {
+    __kind__: "ok";
+    ok: TenantUserLoginResponse;
+} | {
+    __kind__: "invalidEmail";
+    invalidEmail: null;
+} | {
+    __kind__: "userNotFound";
+    userNotFound: null;
+} | {
+    __kind__: "invalidPassword";
+    invalidPassword: null;
+} | {
+    __kind__: "internalError";
+    internalError: null;
+} | {
+    __kind__: "notApproved";
+    notApproved: null;
+};
+export interface GovAttachmentMeta {
+    blobUrl: string;
+    fileName: string;
+    fileSize: bigint;
+    uploadedAt: bigint;
+}
+export interface SSOConfig {
+    idpIssuerUrl: string;
+    idpClientId: string;
+    allowedDomains: Array<string>;
+    enabled: boolean;
+    notes: string;
+    idpName: string;
+    requireDomainWhitelist: boolean;
+}
+export interface UserRegistrationInput {
+    domain: string;
+    password: string;
+    fullName: string;
+    email: string;
+    companyName: string;
+}
 export interface UserProfile {
     name: string;
     email: string;
     department: string;
-}
-export interface UploadedDocumentMeta {
-    id: bigint;
-    title: string;
-    clauseNumber: string;
-    fileName: string;
-    fileSize: bigint;
-    blobUrl: string;
-    uploadedAt: bigint;
-}
-export interface GovAttachmentMeta {
-    fileName: string;
-    fileSize: bigint;
-    blobUrl: string;
-    uploadedAt: bigint;
-}
-export interface GovFrameworkMapping {
-    frameworkId: bigint;
-    frameworkName: string;
 }
 export enum ApprovalStatus {
     pending = "pending",
@@ -220,6 +280,12 @@ export enum MaturityLevel {
     veryLow = "veryLow",
     critical = "critical",
     medium = "medium"
+}
+export enum RegistrationResult {
+    ok = "ok",
+    userAlreadyExists = "userAlreadyExists",
+    invalidInput = "invalidInput",
+    domainAlreadyRegistered = "domainAlreadyRegistered"
 }
 export enum RiskLevel {
     low = "low",
@@ -254,49 +320,57 @@ export enum UserRole {
     guest = "guest"
 }
 export interface backendInterface {
+    addUploadedDocument(title: string, clauseNumber: string, fileName: string, fileSize: bigint, blobUrl: string): Promise<bigint>;
+    approveTenantUser(userId: string): Promise<void>;
     assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
     assignUserToTenant(user: Principal, tenantId: bigint): Promise<void>;
     createComplianceControl(input: CreateComplianceControlInput): Promise<bigint>;
     createGovernanceItem(input: CreateGovernanceItemInput): Promise<bigint>;
     createRisk(input: CreateRiskInput): Promise<bigint>;
     createTenant(input: TenantCreateInput): Promise<bigint>;
+    deleteGovernanceAttachment(governanceItemId: bigint): Promise<void>;
+    deleteGovernanceFrameworkMapping(governanceItemId: bigint): Promise<void>;
     deleteGovernanceItem(id: bigint): Promise<void>;
     deleteRisk(id: bigint): Promise<void>;
     deleteTenant(id: bigint): Promise<void>;
+    deleteUploadedDocument(id: bigint): Promise<void>;
     getCallerTenant(): Promise<Tenant | null>;
     getCallerUserProfile(): Promise<UserProfile | null>;
     getCallerUserRole(): Promise<UserRole>;
     getComplianceControls(frameworkId: bigint): Promise<Array<ComplianceControl>>;
     getComplianceFrameworks(): Promise<Array<ComplianceFramework>>;
     getComplianceScores(): Promise<Array<ComplianceScores>>;
+    getGovernanceAttachment(governanceItemId: bigint): Promise<GovAttachmentMeta | null>;
+    getGovernanceAttachments(): Promise<Array<[bigint, GovAttachmentMeta]>>;
+    getGovernanceFrameworkMappings(): Promise<Array<[bigint, GovFrameworkMapping]>>;
     getGovernanceItems(): Promise<Array<GovernanceItem>>;
     getGovernanceSummary(): Promise<GovernanceSummary>;
     getRiskById(id: bigint): Promise<RiskItem | null>;
     getRiskStats(): Promise<RiskStats>;
     getRisks(): Promise<Array<RiskItem>>;
     getRisksByTenant(tenantId: bigint): Promise<Array<RiskItem>>;
+    getSSOConfig(): Promise<SSOConfig>;
+    getTenantOrg(domain: string): Promise<TenantOrg | null>;
+    getUploadedDocuments(): Promise<Array<UploadedDocumentMeta>>;
     getUserProfile(user: Principal): Promise<UserProfile | null>;
     getUserTenant(user: Principal): Promise<Tenant | null>;
     initializeGRCData(): Promise<void>;
     initializeISMSRepository(): Promise<void>;
+    isAdminAssigned(): Promise<boolean>;
     isCallerAdmin(): Promise<boolean>;
     isCallerApproved(): Promise<boolean>;
     listApprovals(): Promise<Array<UserApprovalInfo>>;
+    listTenantUsers(): Promise<Array<TenantUser>>;
     listTenants(): Promise<Array<Tenant>>;
+    registerTenantUser(input: UserRegistrationInput): Promise<RegistrationResult>;
     requestApproval(): Promise<void>;
     saveCallerUserProfile(profile: UserProfile): Promise<void>;
     setApproval(user: Principal, status: ApprovalStatus): Promise<void>;
+    setGovernanceAttachment(governanceItemId: bigint, fileName: string, fileSize: bigint, blobUrl: string): Promise<void>;
+    setGovernanceFrameworkMapping(governanceItemId: bigint, frameworkId: bigint, frameworkName: string): Promise<void>;
+    setSSOConfig(config: SSOConfig): Promise<void>;
+    tenantLogin(email: string, password: string): Promise<TenantLoginResult>;
     updateComplianceControl(input: UpdateComplianceControlInput): Promise<ComplianceControl>;
     updateGovernanceItem(input: UpdateGovernanceItemInput): Promise<GovernanceItem>;
     updateRisk(input: UpdateRiskInput): Promise<RiskItem>;
-    addUploadedDocument(title: string, clauseNumber: string, fileName: string, fileSize: bigint, blobUrl: string): Promise<bigint>;
-    getUploadedDocuments(): Promise<Array<UploadedDocumentMeta>>;
-    deleteUploadedDocument(id: bigint): Promise<void>;
-    setGovernanceAttachment(governanceItemId: bigint, fileName: string, fileSize: bigint, blobUrl: string): Promise<void>;
-    getGovernanceAttachment(governanceItemId: bigint): Promise<GovAttachmentMeta | null>;
-    getGovernanceAttachments(): Promise<Array<[bigint, GovAttachmentMeta]>>;
-    deleteGovernanceAttachment(governanceItemId: bigint): Promise<void>;
-    setGovernanceFrameworkMapping(governanceItemId: bigint, frameworkId: bigint, frameworkName: string): Promise<void>;
-    getGovernanceFrameworkMappings(): Promise<Array<[bigint, GovFrameworkMapping]>>;
-    deleteGovernanceFrameworkMapping(governanceItemId: bigint): Promise<void>;
 }
