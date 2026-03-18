@@ -16,9 +16,9 @@ import Set "mo:core/Set";
 import Array "mo:core/Array";
 import VarArray "mo:core/VarArray";
 import Principal "mo:core/Principal";
-import Migration "migration";
 
-(with migration = Migration.run)
+
+
 actor {
   include MixinStorage();
 
@@ -1621,4 +1621,242 @@ actor {
     };
     govFrameworkMappings.remove(governanceItemId);
   };
+  // ── Tenant Org Nat ID mapping (for email/password tenant users) ───────────
+  // Maps domain -> Nat tenant ID so tenant-user risks/gov/compliance use same tenantId field
+  let tenantOrgNatIdMap = Map.empty<Text, Nat>();
+  var nextTenantOrgNatId = 1000; // Start at 1000 to avoid collision with admin-created tenants
+
+  func getTenantNatIdForDomain(domain : Text) : Nat {
+    switch (tenantOrgNatIdMap.get(domain)) {
+      case (?id) { id };
+      case (null) { 0 };
+    };
+  };
+
+  func getOrCreateTenantNatIdForDomain(domain : Text) : Nat {
+    switch (tenantOrgNatIdMap.get(domain)) {
+      case (?id) { id };
+      case (null) {
+        let id = nextTenantOrgNatId;
+        tenantOrgNatIdMap.add(domain, id);
+        nextTenantOrgNatId += 1;
+        id;
+      };
+    };
+  };
+
+  // ── Tenant-User APIs (authenticated by userId, no II required) ────────────
+
+  public query ({ caller }) func getRisksAsTenantUser(userId : Text) : async [RiskItem] {
+    switch (tenantUsers.get(userId)) {
+      case (null) { Runtime.trap("User not found") };
+      case (?user) {
+        if (not user.approved) { Runtime.trap("User not approved") };
+        let natId = getTenantNatIdForDomain(user.domain);
+        if (natId == 0) { return [] };
+        risks.values().toArray().filter(func(r) { r.tenantId == natId });
+      };
+    };
+  };
+
+  public shared ({ caller }) func createRiskAsTenantUser(userId : Text, input : CreateRiskInput) : async Nat {
+    switch (tenantUsers.get(userId)) {
+      case (null) { Runtime.trap("User not found") };
+      case (?user) {
+        if (not user.approved) { Runtime.trap("User not approved") };
+        let natId = getOrCreateTenantNatIdForDomain(user.domain);
+        let id = nextRiskId;
+        let inherentRiskScore = input.likelihood * input.impact;
+        let residualRiskScore = calculateResidualRiskScore(inherentRiskScore, input.mitigationControls);
+        let riskLevel = determineRiskLevel(residualRiskScore);
+        let risk : RiskItem = {
+          id;
+          tenantId = natId;
+          title = input.title;
+          description = input.description;
+          threatCategory = input.threatCategory;
+          vulnerability = input.vulnerability;
+          likelihood = input.likelihood;
+          impact = input.impact;
+          inherentRiskScore;
+          mitigationControls = input.mitigationControls;
+          residualRiskScore;
+          riskLevel;
+          treatment = input.treatment;
+          treatmentOwner = input.treatmentOwner;
+          treatmentNotes = input.treatmentNotes;
+          treatmentPlanDescription = input.treatmentPlanDescription;
+          treatmentPlanOwner = input.treatmentPlanOwner;
+          treatmentPlanTargetDate = input.treatmentPlanTargetDate;
+          treatmentPlanReviewDate = input.treatmentPlanReviewDate;
+          dueDate = input.dueDate;
+          status = #open;
+          createdAt = getCurrentTime();
+          updatedAt = getCurrentTime();
+        };
+        risks.add(id, risk);
+        nextRiskId += 1;
+        id;
+      };
+    };
+  };
+
+  public shared ({ caller }) func deleteRiskAsTenantUser(userId : Text, riskId : Nat) : async () {
+    switch (tenantUsers.get(userId)) {
+      case (null) { Runtime.trap("User not found") };
+      case (?user) {
+        if (not user.approved) { Runtime.trap("User not approved") };
+        let natId = getTenantNatIdForDomain(user.domain);
+        switch (risks.get(riskId)) {
+          case (null) { Runtime.trap("Risk not found") };
+          case (?risk) {
+            if (risk.tenantId != natId) { Runtime.trap("Unauthorized: Not your tenant's risk") };
+            risks.remove(riskId);
+          };
+        };
+      };
+    };
+  };
+
+  public query ({ caller }) func getGovernanceItemsAsTenantUser(userId : Text) : async [GovernanceItem] {
+    switch (tenantUsers.get(userId)) {
+      case (null) { Runtime.trap("User not found") };
+      case (?user) {
+        if (not user.approved) { Runtime.trap("User not approved") };
+        let natId = getTenantNatIdForDomain(user.domain);
+        if (natId == 0) { return [] };
+        governanceItems.values().toArray().filter(func(item) {
+          switch (govTenantMap.get(item.id)) {
+            case (?tid) { tid == natId };
+            case (null) { false }; // seed data not shown to tenant users
+          };
+        });
+      };
+    };
+  };
+
+  public shared ({ caller }) func createGovernanceItemAsTenantUser(userId : Text, input : CreateGovernanceItemInput) : async Nat {
+    switch (tenantUsers.get(userId)) {
+      case (null) { Runtime.trap("User not found") };
+      case (?user) {
+        if (not user.approved) { Runtime.trap("User not approved") };
+        let natId = getOrCreateTenantNatIdForDomain(user.domain);
+        let id = nextGovernanceId;
+        let item : GovernanceItem = {
+          id;
+          title = input.title;
+          category = input.category;
+          description = input.description;
+          owner = input.owner;
+          status = #draft;
+          reviewDate = input.reviewDate;
+          approvedBy = input.approvedBy;
+          createdAt = getCurrentTime();
+          updatedAt = getCurrentTime();
+        };
+        governanceItems.add(id, item);
+        govTenantMap.add(id, natId);
+        nextGovernanceId += 1;
+        id;
+      };
+    };
+  };
+
+  public query ({ caller }) func getComplianceControlsAsTenantUser(userId : Text, frameworkId : Nat) : async [ComplianceControl] {
+    switch (tenantUsers.get(userId)) {
+      case (null) { Runtime.trap("User not found") };
+      case (?user) {
+        if (not user.approved) { Runtime.trap("User not approved") };
+        let natId = getTenantNatIdForDomain(user.domain);
+        if (natId == 0) { return [] };
+        controls.values().toArray().filter(func(c) {
+          if (c.frameworkId != frameworkId) { return false };
+          switch (ctrlTenantMap.get(c.id)) {
+            case (?tid) { tid == natId };
+            case (null) { false }; // seed data not shown to tenant users
+          };
+        });
+      };
+    };
+  };
+
+  public shared ({ caller }) func createComplianceControlAsTenantUser(userId : Text, input : CreateComplianceControlInput) : async Nat {
+    switch (tenantUsers.get(userId)) {
+      case (null) { Runtime.trap("User not found") };
+      case (?user) {
+        if (not user.approved) { Runtime.trap("User not approved") };
+        let natId = getOrCreateTenantNatIdForDomain(user.domain);
+        let id = nextControlId;
+        let control : ComplianceControl = {
+          id;
+          frameworkId = input.frameworkId;
+          controlId = input.controlId;
+          controlName = input.controlName;
+          description = input.description;
+          status = input.status;
+          evidence = input.evidence;
+          owner = input.owner;
+          updatedAt = getCurrentTime();
+        };
+        controls.add(id, control);
+        ctrlTenantMap.add(id, natId);
+        nextControlId += 1;
+        id;
+      };
+    };
+  };
+
+  // Admin creates a pre-approved tenant user
+  public type AdminCreateTenantUserInput = {
+    fullName : Text;
+    email : Text;
+    password : Text;
+    companyName : Text;
+    domain : Text;
+    role : Text;
+  };
+
+  public shared ({ caller }) func createTenantUserByAdmin(input : AdminCreateTenantUserInput) : async RegistrationResult {
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only admins can create tenant users");
+    };
+    switch (tenantUsersByEmail.get(input.email)) {
+      case (?_) { return #userAlreadyExists };
+      case (null) {};
+    };
+    let tenantOrgId = switch (tenantOrgs.get(input.domain)) {
+      case (?existingOrg) { existingOrg.id };
+      case (null) {
+        let newOrgId = nextTenantOrgId.toText();
+        let tenantOrg : TenantOrg = {
+          id = newOrgId;
+          companyName = input.companyName;
+          domain = input.domain;
+          createdAt = Time.now();
+        };
+        tenantOrgs.add(input.domain, tenantOrg);
+        nextTenantOrgId += 1;
+        newOrgId;
+      };
+    };
+    ignore tenantOrgId;
+    let userId = nextTenantUserId.toText();
+    let tenantUser : TenantUser = {
+      id = userId;
+      fullName = input.fullName;
+      email = input.email;
+      passwordHash = input.password;
+      companyName = input.companyName;
+      domain = input.domain;
+      role = input.role;
+      approved = true; // pre-approved by admin
+      createdAt = Time.now();
+    };
+    tenantUsers.add(userId, tenantUser);
+    tenantUsersByEmail.add(input.email, tenantUser);
+    nextTenantUserId += 1;
+    #ok;
+  };
+
+
 };

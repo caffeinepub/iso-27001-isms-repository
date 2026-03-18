@@ -784,3 +784,179 @@ export function useDeleteGovernanceFrameworkMapping() {
     onError: () => toast.error("Failed to delete framework mapping"),
   });
 }
+
+export function useListTenantUsers() {
+  const { actor, isFetching } = useActor();
+  return useQuery<any[]>({
+    queryKey: ["tenantUsers"],
+    queryFn: async () => {
+      if (!actor) return [];
+      return (actor as any).listTenantUsers();
+    },
+    enabled: !!actor && !isFetching,
+  });
+}
+
+export function useApproveTenantUser() {
+  const { actor } = useActor();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (userId: string) => {
+      if (!actor) throw new Error("No actor");
+      await (actor as any).approveTenantUser(userId);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["tenantUsers"] });
+      toast.success("Tenant user approved successfully");
+    },
+    onError: () => toast.error("Failed to approve tenant user"),
+  });
+}
+
+// ── Tenant-User APIs (email/password users, no II auth) ────────────────────
+
+export function useRisksAsTenantUser(userId: string | null) {
+  const { actor, isFetching } = useActor();
+  return useQuery<RiskItem[]>({
+    queryKey: ["risksAsTenantUser", userId],
+    queryFn: async () => {
+      if (!actor || !userId) return [];
+      return (actor as any).getRisksAsTenantUser(userId);
+    },
+    enabled: !!actor && !isFetching && !!userId,
+  });
+}
+
+export function useCreateRiskAsTenantUser() {
+  const { actor } = useActor();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      userId,
+      input,
+    }: { userId: string; input: CreateRiskInput }) => {
+      if (!actor) throw new Error("No actor");
+      return (actor as any).createRiskAsTenantUser(userId, input);
+    },
+    onSuccess: (_: any, vars: any) => {
+      qc.invalidateQueries({ queryKey: ["risksAsTenantUser", vars.userId] });
+      toast.success("Risk created successfully");
+    },
+    onError: () => toast.error("Failed to create risk"),
+  });
+}
+
+export function useDeleteRiskAsTenantUser() {
+  const { actor } = useActor();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      userId,
+      riskId,
+    }: { userId: string; riskId: bigint }) => {
+      if (!actor) throw new Error("No actor");
+      return (actor as any).deleteRiskAsTenantUser(userId, riskId);
+    },
+    onSuccess: (_: any, vars: any) => {
+      qc.invalidateQueries({ queryKey: ["risksAsTenantUser", vars.userId] });
+      toast.success("Risk deleted");
+    },
+    onError: () => toast.error("Failed to delete risk"),
+  });
+}
+
+export function useGovernanceItemsAsTenantUser(userId: string | null) {
+  const { actor, isFetching } = useActor();
+  return useQuery<GovernanceItem[]>({
+    queryKey: ["governanceItemsAsTenantUser", userId],
+    queryFn: async () => {
+      if (!actor || !userId) return [];
+      return (actor as any).getGovernanceItemsAsTenantUser(userId);
+    },
+    enabled: !!actor && !isFetching && !!userId,
+  });
+}
+
+export function useCreateGovernanceItemAsTenantUser() {
+  const { actor } = useActor();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      userId,
+      input,
+    }: { userId: string; input: CreateGovernanceItemInput }) => {
+      if (!actor) throw new Error("No actor");
+      return (actor as any).createGovernanceItemAsTenantUser(userId, input);
+    },
+    onSuccess: (_: any, vars: any) => {
+      qc.invalidateQueries({
+        queryKey: ["governanceItemsAsTenantUser", vars.userId],
+      });
+      toast.success("Governance item created");
+    },
+    onError: () => toast.error("Failed to create governance item"),
+  });
+}
+
+export function useComplianceControlsAsTenantUser(
+  userId: string | null,
+  frameworkId: bigint | null,
+) {
+  const { actor, isFetching } = useActor();
+  return useQuery<ComplianceControl[]>({
+    queryKey: [
+      "complianceControlsAsTenantUser",
+      userId,
+      frameworkId?.toString(),
+    ],
+    queryFn: async () => {
+      if (!actor || !userId || frameworkId === null) return [];
+      return (actor as any).getComplianceControlsAsTenantUser(
+        userId,
+        frameworkId,
+      );
+    },
+    enabled: !!actor && !isFetching && !!userId && frameworkId !== null,
+  });
+}
+
+export function useCreateComplianceControlAsTenantUser() {
+  const { actor } = useActor();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ userId, input }: { userId: string; input: any }) => {
+      if (!actor) throw new Error("No actor");
+      return (actor as any).createComplianceControlAsTenantUser(userId, input);
+    },
+    onSuccess: (_: any, vars: any) => {
+      qc.invalidateQueries({
+        queryKey: ["complianceControlsAsTenantUser", vars.userId],
+      });
+      toast.success("Compliance control created");
+    },
+    onError: () => toast.error("Failed to create compliance control"),
+  });
+}
+
+export function useCreateTenantUserByAdmin() {
+  const { actor } = useActor();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      fullName: string;
+      email: string;
+      password: string;
+      companyName: string;
+      domain: string;
+      role: string;
+    }) => {
+      if (!actor) throw new Error("No actor");
+      return (actor as any).createTenantUserByAdmin(input);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["tenantUsers"] });
+      toast.success("Tenant user created successfully");
+    },
+    onError: () => toast.error("Failed to create tenant user"),
+  });
+}

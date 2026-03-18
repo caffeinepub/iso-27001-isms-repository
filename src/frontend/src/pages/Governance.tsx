@@ -39,14 +39,17 @@ import {
   GovernanceStatus,
   type UpdateGovernanceItemInput,
 } from "../backend";
+import { useTenantUser } from "../contexts/TenantUserContext";
 import {
   useComplianceFrameworks,
   useCreateGovernanceItem,
+  useCreateGovernanceItemAsTenantUser,
   useDeleteGovernanceFrameworkMapping,
   useDeleteGovernanceItem,
   useGetGovernanceAttachments,
   useGetGovernanceFrameworkMappings,
   useGovernanceItems,
+  useGovernanceItemsAsTenantUser,
   useGovernanceSummary,
   useSetGovernanceAttachment,
   useSetGovernanceFrameworkMapping,
@@ -197,10 +200,24 @@ function GovernanceCard({
 }
 
 export function Governance() {
-  const { data: items, isLoading } = useGovernanceItems();
+  const { tenantUser } = useTenantUser();
+  const isTenantUser = !!tenantUser;
+  const { data: itemsII, isLoading: loadingII } = useGovernanceItems();
+  const { data: itemsTU, isLoading: loadingTU } =
+    useGovernanceItemsAsTenantUser(isTenantUser ? tenantUser!.id : null);
+  const items = isTenantUser ? itemsTU : itemsII;
+  const isLoading = isTenantUser ? loadingTU : loadingII;
   const { data: summary } = useGovernanceSummary();
   const { data: complianceFrameworks } = useComplianceFrameworks();
-  const createItem = useCreateGovernanceItem();
+  const createItemII = useCreateGovernanceItem();
+  const createItemTU = useCreateGovernanceItemAsTenantUser();
+  const createItem = {
+    mutateAsync: async (input: any) =>
+      isTenantUser
+        ? createItemTU.mutateAsync({ userId: tenantUser!.id, input })
+        : createItemII.mutateAsync(input),
+    isPending: isTenantUser ? createItemTU.isPending : createItemII.isPending,
+  };
   const updateItem = useUpdateGovernanceItem();
   const deleteItem = useDeleteGovernanceItem();
 

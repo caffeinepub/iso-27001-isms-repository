@@ -67,13 +67,17 @@ import {
   ThreatCategory,
   type UpdateRiskInput,
 } from "../backend";
+import { useTenantUser } from "../contexts/TenantUserContext";
 import {
   useCallerRole,
   useCallerTenant,
   useCreateRisk,
+  useCreateRiskAsTenantUser,
   useDeleteRisk,
+  useDeleteRiskAsTenantUser,
   useRiskStats,
   useRisks,
+  useRisksAsTenantUser,
   useUpdateRisk,
 } from "../hooks/useQueries";
 
@@ -950,16 +954,46 @@ function exportToExcel(risks: RiskItem[]) {
 
 // ── Main Component ─────────────────────────────────────────────────────────
 export function RiskRegister() {
-  const { data: risks, isLoading } = useRisks();
+  const { tenantUser } = useTenantUser();
+  const isTenantUser = !!tenantUser;
+
+  // Standard II-based hooks (used for admin/II users)
+  const { data: risksII, isLoading: risksIILoading } = useRisks();
   const { data: riskStats } = useRiskStats();
-  const createRisk = useCreateRisk();
+  const createRiskII = useCreateRisk();
   const updateRisk = useUpdateRisk();
-  const deleteRisk = useDeleteRisk();
+  const deleteRiskII = useDeleteRisk();
   const { data: callerRole } = useCallerRole();
   const { data: callerTenant, isLoading: tenantLoading } = useCallerTenant();
 
-  const isAdmin = callerRole === "admin";
-  const hasTenant = isAdmin || !!callerTenant;
+  // Tenant-user hooks (used for email/password tenant users)
+  const { data: risksTU, isLoading: risksTULoading } = useRisksAsTenantUser(
+    isTenantUser ? tenantUser!.id : null,
+  );
+  const createRiskTU = useCreateRiskAsTenantUser();
+  const deleteRiskTU = useDeleteRiskAsTenantUser();
+
+  // Unified values
+  const risks = isTenantUser ? risksTU : risksII;
+  const isLoading = isTenantUser ? risksTULoading : risksIILoading;
+  const createRisk = {
+    mutateAsync: async (input: any) =>
+      isTenantUser
+        ? createRiskTU.mutateAsync({ userId: tenantUser!.id, input })
+        : createRiskII.mutateAsync(input),
+    isPending: isTenantUser ? createRiskTU.isPending : createRiskII.isPending,
+  };
+  const deleteRisk = {
+    mutateAsync: async (id: bigint) =>
+      isTenantUser
+        ? deleteRiskTU.mutateAsync({ userId: tenantUser!.id, riskId: id })
+        : deleteRiskII.mutateAsync(id),
+    isPending: isTenantUser ? deleteRiskTU.isPending : deleteRiskII.isPending,
+  };
+
+  const isAdmin = !isTenantUser && callerRole === "admin";
+  // Tenant users always have a tenant (their org)
+  const hasTenant = isTenantUser || isAdmin || !!callerTenant;
 
   const [filterLevel, setFilterLevel] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<string>("all");
@@ -1396,7 +1430,7 @@ export function RiskRegister() {
                               variant="ghost"
                               size="icon"
                               className="h-7 w-7 hover:text-destructive"
-                              onClick={() => deleteRisk.mutate(risk.id)}
+                              onClick={() => deleteRisk.mutateAsync(risk.id)}
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </Button>

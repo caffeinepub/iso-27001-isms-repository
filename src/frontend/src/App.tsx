@@ -4,6 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { ShieldCheck } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Layout } from "./components/layout/Layout";
+import { TenantUserProvider } from "./contexts/TenantUserContext";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { useActor } from "./hooks/useActor";
 import { useInternetIdentity } from "./hooks/useInternetIdentity";
@@ -23,10 +24,44 @@ import { RiskRegister } from "./pages/RiskRegister";
 import { TenantLogin } from "./pages/TenantLogin";
 import { TenantSignUp } from "./pages/TenantSignUp";
 import { TrustCenter } from "./pages/TrustCenter";
-import {
-  clearAdminTokenFromUrl,
-  getAdminTokenFromUrl,
-} from "./utils/urlParams";
+// ── Admin token helpers ───────────────────────────────────────────────────
+function getAdminTokenFromUrl(): string | null {
+  // Check query string: ?caffeineAdminToken=...
+  const qs = new URLSearchParams(window.location.search);
+  const qsToken = qs.get("caffeineAdminToken");
+  if (qsToken) return qsToken;
+  // Check hash fragment: #caffeineAdminToken=... or #/?caffeineAdminToken=...
+  const hash = window.location.hash;
+  if (hash) {
+    const hashContent = hash.startsWith("#") ? hash.slice(1) : hash;
+    const sep = hashContent.indexOf("?");
+    const hashQs = sep >= 0 ? hashContent.slice(sep + 1) : hashContent;
+    const hashParams = new URLSearchParams(hashQs);
+    const hashToken = hashParams.get("caffeineAdminToken");
+    if (hashToken) return hashToken;
+  }
+  return null;
+}
+
+function clearAdminTokenFromUrl(): void {
+  // Remove token from query string
+  const url = new URL(window.location.href);
+  url.searchParams.delete("caffeineAdminToken");
+  // Remove token from hash
+  const hash = url.hash;
+  if (hash) {
+    const hashContent = hash.startsWith("#") ? hash.slice(1) : hash;
+    const sep = hashContent.indexOf("?");
+    if (sep >= 0) {
+      const routePath = hashContent.slice(0, sep);
+      const hashParams = new URLSearchParams(hashContent.slice(sep + 1));
+      hashParams.delete("caffeineAdminToken");
+      const newQs = hashParams.toString();
+      url.hash = `#${routePath}${newQs ? `?${newQs}` : ""}`;
+    }
+  }
+  window.history.replaceState(null, "", url.toString());
+}
 
 export type Page =
   | "dashboard"
@@ -165,23 +200,25 @@ function AppShell() {
   // Tenant user is logged in via email/password — show dashboard directly
   if (isTenantAuthenticated && !isAuthenticated) {
     return (
-      <Layout
-        currentPage={page}
-        onNavigate={setPage}
-        onTenantLogout={() => {
-          localStorage.removeItem("tenantUser");
-          setTenantUser(null);
-          setAuthView("main");
-        }}
-        tenantUser={tenantUser as Record<string, string>}
-      >
-        {page === "dashboard" && <Dashboard onNavigate={setPage} />}
-        {page === "documents" && <Documents />}
-        {page === "riskRegister" && <RiskRegister />}
-        {page === "compliance" && <ComplianceStandards />}
-        {page === "governance" && <Governance />}
-        {page === "trustCenter" && <TrustCenter />}
-      </Layout>
+      <TenantUserProvider tenantUser={tenantUser as any}>
+        <Layout
+          currentPage={page}
+          onNavigate={setPage}
+          onTenantLogout={() => {
+            localStorage.removeItem("tenantUser");
+            setTenantUser(null);
+            setAuthView("main");
+          }}
+          tenantUser={tenantUser as Record<string, string>}
+        >
+          {page === "dashboard" && <Dashboard onNavigate={setPage} />}
+          {page === "documents" && <Documents />}
+          {page === "riskRegister" && <RiskRegister />}
+          {page === "compliance" && <ComplianceStandards />}
+          {page === "governance" && <Governance />}
+          {page === "trustCenter" && <TrustCenter />}
+        </Layout>
+      </TenantUserProvider>
     );
   }
 

@@ -13,8 +13,10 @@ import { Loader2, ShieldCheck } from "lucide-react";
 import { motion } from "motion/react";
 import { useState } from "react";
 import { ControlStatus } from "../backend";
+import { useTenantUser } from "../contexts/TenantUserContext";
 import {
   useComplianceControls,
+  useComplianceControlsAsTenantUser,
   useComplianceFrameworks,
   useComplianceScores,
   useInitializeGRCData,
@@ -47,8 +49,19 @@ function controlStatusLabel(status: ControlStatus) {
   }
 }
 
-function FrameworkControls({ frameworkId }: { frameworkId: bigint }) {
-  const { data: controls, isLoading } = useComplianceControls(frameworkId);
+function FrameworkControls({
+  frameworkId,
+  tenantUserId,
+}: { frameworkId: bigint; tenantUserId?: string | null }) {
+  const { data: controlsII, isLoading: loadingII } =
+    useComplianceControls(frameworkId);
+  const { data: controlsTU, isLoading: loadingTU } =
+    useComplianceControlsAsTenantUser(
+      tenantUserId ?? null,
+      tenantUserId ? frameworkId : null,
+    );
+  const controls = tenantUserId ? controlsTU : controlsII;
+  const isLoading = tenantUserId ? loadingTU : loadingII;
   const updateControl = useUpdateComplianceControl();
   if (isLoading) {
     return (
@@ -145,6 +158,7 @@ function FrameworkControls({ frameworkId }: { frameworkId: bigint }) {
 }
 
 export function ComplianceStandards() {
+  const { tenantUser } = useTenantUser();
   const { data: frameworks, isLoading: fwLoading } = useComplianceFrameworks();
   const { data: scores, isLoading: scoresLoading } = useComplianceScores();
   const [selectedFwId, setSelectedFwId] = useState<bigint | null>(null);
@@ -338,7 +352,10 @@ export function ComplianceStandards() {
             </div>
           </CardHeader>
           <CardContent>
-            <FrameworkControls frameworkId={activeFwId} />
+            <FrameworkControls
+              frameworkId={activeFwId}
+              tenantUserId={tenantUser?.id}
+            />
           </CardContent>
         </Card>
       ) : null}

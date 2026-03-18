@@ -31,6 +31,7 @@ import {
   Trash2,
   UserCheck,
   UserCog,
+  UserPlus,
   UserX,
   Users,
   X,
@@ -41,14 +42,17 @@ import { toast } from "sonner";
 import { ApprovalStatus, UserRole } from "../backend";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
 import {
+  useApproveTenantUser,
   useAssignRole,
   useAssignUserToTenant,
   useCallerRole,
   useCreateTenant,
+  useCreateTenantUserByAdmin,
   useDeleteTenant,
   useGetSSOConfig,
   useInitializeGRCData,
   useListApprovals,
+  useListTenantUsers,
   useListTenants,
   useRisks,
   useSetApproval,
@@ -326,6 +330,12 @@ export function Admin() {
   const initGRC = useInitializeGRCData();
   const { data: approvals, isLoading: approvalsLoading } = useListApprovals();
   const setApproval = useSetApproval();
+  const { data: tenantUsers, isLoading: tenantUsersLoading } =
+    useListTenantUsers();
+  const approveTenantUser = useApproveTenantUser();
+  const pendingTenantUsers = (tenantUsers ?? []).filter(
+    (u: any) => !u.approved,
+  );
 
   // Tenant state
   const { data: tenants, isLoading: tenantsLoading } = useListTenants();
@@ -345,6 +355,14 @@ export function Admin() {
   const [tenantDomain, setTenantDomain] = useState("");
   const [selectedTenantUser, setSelectedTenantUser] = useState("");
   const [selectedTenantId, setSelectedTenantId] = useState("");
+  // Create tenant user state
+  const [createTenantUserOpen, setCreateTenantUserOpen] = useState(false);
+  const [newTuName, setNewTuName] = useState("");
+  const [newTuEmail, setNewTuEmail] = useState("");
+  const [newTuPassword, setNewTuPassword] = useState("");
+  const [newTuCompany, setNewTuCompany] = useState("");
+  const [newTuDomain, setNewTuDomain] = useState("");
+  const createTenantUserByAdmin = useCreateTenantUserByAdmin();
 
   const [principalInput, setPrincipalInput] = useState("");
   const [selectedRole, setSelectedRole] = useState<UserRole>(UserRole.user);
@@ -408,6 +426,35 @@ export function Admin() {
       setTenantDomain("");
     } catch {
       // toast handled in hook
+    }
+  };
+
+  const handleCreateTenantUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (
+      !newTuName.trim() ||
+      !newTuEmail.trim() ||
+      !newTuPassword.trim() ||
+      !newTuDomain.trim()
+    )
+      return;
+    try {
+      await createTenantUserByAdmin.mutateAsync({
+        fullName: newTuName.trim(),
+        email: newTuEmail.trim(),
+        password: newTuPassword.trim(),
+        companyName: newTuCompany.trim() || newTuDomain.trim(),
+        domain: newTuDomain.trim().toLowerCase(),
+        role: "user",
+      });
+      setNewTuName("");
+      setNewTuEmail("");
+      setNewTuPassword("");
+      setNewTuCompany("");
+      setNewTuDomain("");
+      setCreateTenantUserOpen(false);
+    } catch (err) {
+      console.error(err);
     }
   };
 
@@ -500,9 +547,9 @@ export function Admin() {
             >
               <Users className="w-3.5 h-3.5" />
               Users
-              {pendingApprovals.length > 0 && (
+              {pendingApprovals.length + pendingTenantUsers.length > 0 && (
                 <span className="ml-0.5 inline-flex items-center justify-center w-4 h-4 rounded-full bg-amber-500/25 text-amber-300 text-[10px] font-bold">
-                  {pendingApprovals.length}
+                  {pendingApprovals.length + pendingTenantUsers.length}
                 </span>
               )}
             </TabsTrigger>
@@ -540,9 +587,14 @@ export function Admin() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Users className="w-4 h-4 text-primary" />
-                    <CardTitle className="text-sm font-semibold font-display">
-                      User Access Requests
-                    </CardTitle>
+                    <div>
+                      <CardTitle className="text-sm font-semibold font-display">
+                        User Access Requests
+                      </CardTitle>
+                      <p className="text-[11px] text-muted-foreground mt-0.5">
+                        Internet Identity (ICP) users requesting access
+                      </p>
+                    </div>
                   </div>
                   {pendingApprovals.length > 0 && (
                     <Badge className="bg-amber-500/15 text-amber-300 border border-amber-500/30 text-xs">
@@ -586,9 +638,18 @@ export function Admin() {
                           data-ocid={`admin.approvals.item.${ocidIdx}`}
                           className="flex flex-wrap items-center gap-3 p-3 rounded-lg bg-muted/20 border border-border/50"
                         >
+                          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                            <Shield className="w-4 h-4 text-primary" />
+                          </div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-xs font-mono text-foreground/80 truncate">
-                              {short}
+                            <p className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                              ICP User
+                              <span className="text-[10px] font-normal text-muted-foreground bg-muted/40 px-1.5 py-0.5 rounded font-mono">
+                                {short}
+                              </span>
+                            </p>
+                            <p className="text-[11px] text-muted-foreground mt-0.5">
+                              Internet Identity · No email available
                             </p>
                           </div>
 
@@ -696,6 +757,123 @@ export function Admin() {
               </CardContent>
             </Card>
 
+            {/* Tenant User Registration Requests */}
+            <Card className="bg-card border-border">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Building2 className="w-4 h-4 text-primary" />
+                    <div>
+                      <CardTitle className="text-sm font-semibold font-display">
+                        Tenant User Sign-Up Requests
+                      </CardTitle>
+                      <p className="text-[11px] text-muted-foreground mt-0.5">
+                        Email/password users awaiting your approval
+                      </p>
+                    </div>
+                  </div>
+                  {pendingTenantUsers.length > 0 && (
+                    <Badge className="bg-amber-500/15 text-amber-300 border border-amber-500/30 text-xs">
+                      {pendingTenantUsers.length} pending
+                    </Badge>
+                  )}
+                </div>
+              </CardHeader>
+              <Separator className="bg-border" />
+              <CardContent className="pt-4">
+                {tenantUsersLoading ? (
+                  <div className="space-y-2">
+                    <Skeleton className="h-12 w-full" />
+                    <Skeleton className="h-12 w-full" />
+                  </div>
+                ) : pendingTenantUsers.length === 0 ? (
+                  <div className="text-center py-6 text-muted-foreground">
+                    <Building2 className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                    <p className="text-xs">
+                      No pending tenant sign-up requests
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {pendingTenantUsers.map((u: any) => (
+                      <div
+                        key={u.id}
+                        className="flex flex-wrap items-center gap-3 p-3 rounded-lg bg-muted/20 border border-border/50"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-semibold text-foreground truncate">
+                            {u.fullName}
+                          </p>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {u.email}
+                          </p>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {u.companyName} &middot; {u.domain}
+                          </p>
+                        </div>
+                        <Badge className="bg-amber-500/15 text-amber-300 border border-amber-500/30 text-xs shrink-0">
+                          Pending
+                        </Badge>
+                        <Button
+                          size="sm"
+                          className="h-7 px-2.5 text-xs bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/25 shrink-0"
+                          disabled={approveTenantUser.isPending}
+                          onClick={() => approveTenantUser.mutate(u.id)}
+                        >
+                          <UserCheck className="w-3 h-3 mr-1" />
+                          Approve
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Approved Tenant Users section in Users tab */}
+                {(tenantUsers ?? []).filter((u: any) => u.approved).length >
+                  0 && (
+                  <div className="mt-4 pt-4 border-t border-border/40">
+                    <p className="text-xs font-semibold text-muted-foreground mb-2 flex items-center gap-1.5">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                      Approved Tenant Users (
+                      {
+                        (tenantUsers ?? []).filter((u: any) => u.approved)
+                          .length
+                      }
+                      )
+                    </p>
+                    <div className="space-y-2">
+                      {(tenantUsers ?? [])
+                        .filter((u: any) => u.approved)
+                        .map((u: any) => (
+                          <div
+                            key={u.id}
+                            className="flex flex-wrap items-center gap-3 p-3 rounded-lg bg-emerald-500/5 border border-emerald-500/20"
+                          >
+                            <div className="w-7 h-7 rounded-full bg-emerald-500/10 flex items-center justify-center shrink-0">
+                              <UserCheck className="w-3.5 h-3.5 text-emerald-400" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-semibold text-foreground truncate">
+                                {u.email}
+                              </p>
+                              <p className="text-[11px] text-muted-foreground truncate">
+                                {u.fullName} · {u.companyName} · {u.domain}
+                              </p>
+                            </div>
+                            <Badge className="bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 text-[10px] shrink-0">
+                              Approved
+                            </Badge>
+                            <Badge className="bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 text-[10px] shrink-0">
+                              {u.role}
+                            </Badge>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
             {/* Approved Users with Role Management */}
             {approvedUsers.length > 0 && (
               <Card className="bg-card border-border">
@@ -797,14 +975,27 @@ export function Admin() {
               <CardHeader className="pb-3">
                 <div className="flex items-center gap-2">
                   <UserCog className="w-4 h-4 text-primary" />
-                  <CardTitle className="text-sm font-semibold font-display">
-                    Assign Role by Principal ID
-                  </CardTitle>
+                  <div>
+                    <CardTitle className="text-sm font-semibold font-display">
+                      Assign Role by Principal ID
+                    </CardTitle>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                      Grant or change roles for ICP (Internet Identity) users
+                    </p>
+                  </div>
                 </div>
               </CardHeader>
               <Separator className="bg-border" />
               <CardContent className="pt-4">
                 <form onSubmit={handleSubmit} className="space-y-4">
+                  <div className="mb-3 flex items-start gap-2 bg-amber-500/10 border border-amber-500/25 rounded-lg px-3 py-2.5">
+                    <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" />
+                    <p className="text-[11px] text-amber-300/80">
+                      For Internet Identity (ICP) users only. Copy the full
+                      Principal ID shown under their name in the "User Access
+                      Requests" section above.
+                    </p>
+                  </div>
                   <div className="space-y-1.5">
                     <Label
                       htmlFor="principal"
@@ -824,8 +1015,9 @@ export function Admin() {
                       className="font-mono text-sm bg-muted/30 border-border"
                     />
                     <p className="text-[11px] text-muted-foreground">
-                      Enter the principal ID of the user you want to assign a
-                      role to
+                      Paste the full cryptographic Principal ID (e.g.,
+                      rngmg-aljse-jar5s-uo4wn-oprds-...) — this is the unique
+                      ICP identity identifier
                     </p>
                   </div>
 
@@ -906,6 +1098,133 @@ export function Admin() {
 
           {/* ── TENANTS TAB ─────────────────────────────────────────── */}
           <TabsContent value="tenants" className="space-y-5 mt-0">
+            {/* Create Tenant User */}
+            <Card className="bg-card border-border">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <UserPlus className="w-4 h-4 text-primary" />
+                    <CardTitle className="text-sm font-semibold font-display">
+                      Create Tenant User
+                    </CardTitle>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-xs border-primary/30 text-primary hover:bg-primary/10"
+                    onClick={() => setCreateTenantUserOpen((v) => !v)}
+                    data-ocid="admin.create_tenant_user.toggle_button"
+                  >
+                    {createTenantUserOpen ? "Cancel" : "New User"}
+                  </Button>
+                </div>
+              </CardHeader>
+              {createTenantUserOpen && (
+                <>
+                  <Separator className="bg-border" />
+                  <CardContent className="pt-4">
+                    <form
+                      onSubmit={handleCreateTenantUser}
+                      className="space-y-4"
+                    >
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <div className="space-y-1.5">
+                          <Label className="text-xs text-muted-foreground">
+                            Full Name
+                          </Label>
+                          <Input
+                            data-ocid="admin.create_tenant_user.name_input"
+                            placeholder="Jane Smith"
+                            value={newTuName}
+                            onChange={(e) => setNewTuName(e.target.value)}
+                            className="text-sm bg-muted/30 border-border"
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-xs text-muted-foreground">
+                            Email
+                          </Label>
+                          <Input
+                            data-ocid="admin.create_tenant_user.email_input"
+                            placeholder="jane@acme.com"
+                            type="email"
+                            value={newTuEmail}
+                            onChange={(e) => setNewTuEmail(e.target.value)}
+                            className="text-sm bg-muted/30 border-border"
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-xs text-muted-foreground">
+                            Password
+                          </Label>
+                          <Input
+                            data-ocid="admin.create_tenant_user.password_input"
+                            placeholder="Temporary password"
+                            type="password"
+                            value={newTuPassword}
+                            onChange={(e) => setNewTuPassword(e.target.value)}
+                            className="text-sm bg-muted/30 border-border"
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-xs text-muted-foreground">
+                            Domain
+                          </Label>
+                          <div className="relative">
+                            <Globe className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+                            <Input
+                              data-ocid="admin.create_tenant_user.domain_input"
+                              placeholder="acme.com"
+                              value={newTuDomain}
+                              onChange={(e) => setNewTuDomain(e.target.value)}
+                              className="text-sm bg-muted/30 border-border pl-8"
+                            />
+                          </div>
+                        </div>
+                        <div className="space-y-1.5 sm:col-span-2">
+                          <Label className="text-xs text-muted-foreground">
+                            Company Name (optional)
+                          </Label>
+                          <Input
+                            data-ocid="admin.create_tenant_user.company_input"
+                            placeholder="Acme Corporation"
+                            value={newTuCompany}
+                            onChange={(e) => setNewTuCompany(e.target.value)}
+                            className="text-sm bg-muted/30 border-border"
+                          />
+                        </div>
+                      </div>
+                      <Button
+                        data-ocid="admin.create_tenant_user.submit_button"
+                        type="submit"
+                        size="sm"
+                        className="w-full bg-primary/15 text-primary border border-primary/30 hover:bg-primary/25"
+                        disabled={
+                          !newTuName ||
+                          !newTuEmail ||
+                          !newTuPassword ||
+                          !newTuDomain ||
+                          createTenantUserByAdmin.isPending
+                        }
+                      >
+                        {createTenantUserByAdmin.isPending ? (
+                          <>
+                            <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" />
+                            Creating...
+                          </>
+                        ) : (
+                          <>
+                            <UserPlus className="w-3.5 h-3.5 mr-2" />
+                            Create Tenant User
+                          </>
+                        )}
+                      </Button>
+                    </form>
+                  </CardContent>
+                </>
+              )}
+            </Card>
+
             {/* Create Tenant */}
             <Card className="bg-card border-border">
               <CardHeader className="pb-3">
@@ -1073,6 +1392,98 @@ export function Admin() {
                         </Button>
                       </div>
                     ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Approved Tenant Users in Tenants tab */}
+            <Card className="bg-card border-border">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <UserCheck className="w-4 h-4 text-emerald-400" />
+                    <div>
+                      <CardTitle className="text-sm font-semibold font-display">
+                        Approved Tenant Users
+                      </CardTitle>
+                      <p className="text-[11px] text-muted-foreground mt-0.5">
+                        Users who signed up via email/password and have been
+                        approved
+                      </p>
+                    </div>
+                  </div>
+                  {(tenantUsers ?? []).filter((u: any) => u.approved).length >
+                    0 && (
+                    <Badge className="bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 text-xs shrink-0">
+                      {
+                        (tenantUsers ?? []).filter((u: any) => u.approved)
+                          .length
+                      }{" "}
+                      approved
+                    </Badge>
+                  )}
+                </div>
+              </CardHeader>
+              <Separator className="bg-border" />
+              <CardContent className="pt-4">
+                {tenantUsersLoading ? (
+                  <div className="space-y-2">
+                    <Skeleton className="h-14 w-full" />
+                    <Skeleton className="h-14 w-full" />
+                  </div>
+                ) : (tenantUsers ?? []).filter((u: any) => u.approved)
+                    .length === 0 ? (
+                  <div
+                    data-ocid="admin.approved_tenant_users.empty_state"
+                    className="text-center py-8 text-muted-foreground"
+                  >
+                    <UserCheck className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                    <p className="text-xs">No approved tenant users yet</p>
+                    <p className="text-[11px] text-muted-foreground/60 mt-1">
+                      Approve sign-up requests from the Users tab
+                    </p>
+                  </div>
+                ) : (
+                  <div
+                    className="space-y-2"
+                    data-ocid="admin.approved_tenant_users.list"
+                  >
+                    {(tenantUsers ?? [])
+                      .filter((u: any) => u.approved)
+                      .map((u: any, idx: number) => (
+                        <div
+                          key={u.id}
+                          data-ocid={`admin.approved_tenant_users.item.${idx + 1}`}
+                          className="flex flex-wrap items-center gap-3 p-3 rounded-lg bg-muted/20 border border-border/50"
+                        >
+                          <div className="w-9 h-9 rounded-full bg-emerald-500/10 flex items-center justify-center shrink-0">
+                            <UserCheck className="w-4 h-4 text-emerald-400" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold text-foreground truncate">
+                              {u.email}
+                            </p>
+                            <p className="text-xs text-muted-foreground truncate">
+                              {u.fullName} · {u.companyName}
+                            </p>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              <Globe className="w-3 h-3 text-muted-foreground shrink-0" />
+                              <p className="text-[11px] text-muted-foreground truncate">
+                                {u.domain}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex flex-col gap-1 items-end shrink-0">
+                            <Badge className="bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 text-[10px]">
+                              Approved
+                            </Badge>
+                            <Badge className="bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 text-[10px]">
+                              {u.role}
+                            </Badge>
+                          </div>
+                        </div>
+                      ))}
                   </div>
                 )}
               </CardContent>
