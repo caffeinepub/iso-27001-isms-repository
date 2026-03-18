@@ -468,6 +468,61 @@ function InherentRiskMatrix({ risks }: { risks: RiskItem[] }) {
   );
 }
 
+// ── Residual Risk Table 10 (Reference) ─────────────────────────────────────
+function ResidualRiskTable10() {
+  const TABLE10 = [
+    { maturity: "High (1)", cells: ["Low", "Low", "Low"] },
+    { maturity: "Medium (2)", cells: ["Low", "Low", "Medium"] },
+    { maturity: "Low (3)", cells: ["Low", "Medium", "High"] },
+    { maturity: "Non-Existent (4)", cells: ["Low", "High", "High"] },
+  ];
+  const cellClass = (v: string) =>
+    v === "Low"
+      ? "bg-green-700/70 text-white"
+      : v === "Medium"
+        ? "bg-yellow-600/70 text-white"
+        : "bg-red-700/70 text-white";
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-xs border-collapse">
+        <thead>
+          <tr>
+            <th className="border border-border bg-muted text-muted-foreground p-2 text-left font-medium">
+              Controls Maturity ↓ / Inherent Risk →
+            </th>
+            <th className="border border-border bg-muted text-muted-foreground p-2 text-center font-medium">
+              Low
+            </th>
+            <th className="border border-border bg-muted text-muted-foreground p-2 text-center font-medium">
+              Medium
+            </th>
+            <th className="border border-border bg-muted text-muted-foreground p-2 text-center font-medium">
+              High
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {TABLE10.map((row) => (
+            <tr key={row.maturity}>
+              <td className="border border-border bg-muted text-muted-foreground p-2 font-medium whitespace-nowrap">
+                {row.maturity}
+              </td>
+              {row.cells.map((v, i) => (
+                <td
+                  key={`${row.maturity}-${i}`}
+                  className={`border border-border p-2 text-center font-semibold ${cellClass(v)}`}
+                >
+                  {v}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 // ── Actual Risk Matrix (3×3) ──────────────────────────────────────────────
 function ActualRiskMatrix({ risks }: { risks: RiskItem[] }) {
   const cellCounts = useMemo(() => {
@@ -1228,6 +1283,20 @@ export function RiskRegister() {
           </CardContent>
         </Card>
       </div>
+
+      <Card className="bg-card border-border mb-4">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-semibold font-display">
+            Table 10 &ndash; Residual Risk Matrix (Reference)
+          </CardTitle>
+          <p className="text-[11px] text-muted-foreground">
+            Residual Risk Level = Controls Maturity × Inherent Risk Level
+          </p>
+        </CardHeader>
+        <CardContent>
+          <ResidualRiskTable10 />
+        </CardContent>
+      </Card>
 
       <Card className="bg-card border-border mb-6">
         <CardHeader className="pb-2">
