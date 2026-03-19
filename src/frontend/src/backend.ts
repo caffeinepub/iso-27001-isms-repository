@@ -173,6 +173,7 @@ export interface CreateRiskInput {
     treatmentPlanDescription: string;
     likelihood: bigint;
     treatmentPlanTargetDate: string;
+    status?: RiskStatus;
 }
 export interface TenantCreateInput {
     domain: string;
@@ -213,6 +214,7 @@ export interface UpdateRiskInput {
     treatmentPlanDescription?: string;
     likelihood?: bigint;
     treatmentPlanTargetDate?: string;
+    status?: RiskStatus;
 }
 export interface RiskItem {
     id: bigint;
@@ -1875,6 +1877,9 @@ function to_candid_MitigationControl_n23(_uploadFile: (file: ExternalBlob) => Pr
 function to_candid_RiskTreatment_n20(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: RiskTreatment): _RiskTreatment {
     return to_candid_variant_n21(_uploadFile, _downloadFile, value);
 }
+function to_candid_RiskStatus_variant(_uploadFile: any, _downloadFile: any, value: RiskStatus): _RiskStatus {
+    return value === RiskStatus.closed ? { closed: null } : value === RiskStatus.inTreatment ? { inTreatment: null } : { open: null };
+}
 function to_candid_ThreatCategory_n27(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: ThreatCategory): _ThreatCategory {
     return to_candid_variant_n28(_uploadFile, _downloadFile, value);
 }
@@ -1963,23 +1968,8 @@ function to_candid_record_n19(_uploadFile: (file: ExternalBlob) => Promise<Uint8
     treatmentPlanDescription: string;
     likelihood: bigint;
     treatmentPlanTargetDate: string;
-}): {
-    treatmentNotes: string;
-    impact: bigint;
-    title: string;
-    treatment: _RiskTreatment;
-    dueDate: string;
-    description: string;
-    mitigationControls: Array<_MitigationControl>;
-    vulnerability: string;
-    treatmentOwner: string;
-    treatmentPlanOwner: string;
-    threatCategory: _ThreatCategory;
-    treatmentPlanReviewDate: string;
-    treatmentPlanDescription: string;
-    likelihood: bigint;
-    treatmentPlanTargetDate: string;
-} {
+    status?: RiskStatus;
+}): _CreateRiskInput {
     return {
         treatmentNotes: value.treatmentNotes,
         impact: value.impact,
@@ -1995,8 +1985,9 @@ function to_candid_record_n19(_uploadFile: (file: ExternalBlob) => Promise<Uint8
         treatmentPlanReviewDate: value.treatmentPlanReviewDate,
         treatmentPlanDescription: value.treatmentPlanDescription,
         likelihood: value.likelihood,
-        treatmentPlanTargetDate: value.treatmentPlanTargetDate
-    };
+        treatmentPlanTargetDate: value.treatmentPlanTargetDate,
+        status: value.status ? [to_candid_RiskStatus_variant(_uploadFile, _downloadFile, value.status)] : []
+    } as any;
 }
 function to_candid_record_n24(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
     controlName: string;
@@ -2121,8 +2112,9 @@ function to_candid_record_n94(_uploadFile: (file: ExternalBlob) => Promise<Uint8
         treatmentPlanReviewDate: value.treatmentPlanReviewDate ? candid_some(value.treatmentPlanReviewDate) : candid_none(),
         treatmentPlanDescription: value.treatmentPlanDescription ? candid_some(value.treatmentPlanDescription) : candid_none(),
         likelihood: value.likelihood ? candid_some(value.likelihood) : candid_none(),
-        treatmentPlanTargetDate: value.treatmentPlanTargetDate ? candid_some(value.treatmentPlanTargetDate) : candid_none()
-    };
+        treatmentPlanTargetDate: value.treatmentPlanTargetDate ? candid_some(value.treatmentPlanTargetDate) : candid_none(),
+        status: value.status ? [to_candid_RiskStatus_variant(_uploadFile, _downloadFile, value.status)] : []
+    } as any;
 }
 function to_candid_variant_n13(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: ControlStatus): {
     notImplemented: null;

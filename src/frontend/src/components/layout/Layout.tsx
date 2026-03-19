@@ -15,6 +15,7 @@ import {
   Shield,
   ShieldCheck,
   Sun,
+  Users,
   X,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
@@ -142,7 +143,16 @@ export function Layout({
   const getNavItems = () => {
     if (isTenantMode) {
       // Tenant users get access to most pages but not admin
-      return allNavItems.filter((item) => item.minRole !== "admin");
+      const base = allNavItems.filter((item) => item.minRole !== "admin");
+      return [
+        ...base,
+        {
+          id: "tenantUsers" as Page,
+          label: "User Management",
+          icon: Users,
+          minRole: "tenant",
+        },
+      ];
     }
     const currentRole = role ?? UserRole.guest;
     return allNavItems.filter((item) => {

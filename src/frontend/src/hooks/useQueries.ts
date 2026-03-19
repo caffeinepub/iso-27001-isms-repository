@@ -960,3 +960,48 @@ export function useCreateTenantUserByAdmin() {
     onError: () => toast.error("Failed to create tenant user"),
   });
 }
+
+export function useUpdateRiskAsTenantUser() {
+  const { actor } = useActor();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ userId, input }: { userId: string; input: any }) => {
+      if (!actor) throw new Error("No actor");
+      return (actor as any).updateRiskAsTenantUser(userId, input);
+    },
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ["risksAsTenantUser", vars.userId] });
+      toast.success("Risk updated");
+    },
+    onError: () => toast.error("Failed to update risk"),
+  });
+}
+
+export function useGetTenantUsersForDomain(domain: string | null) {
+  const { actor, isFetching } = useActor();
+  return useQuery<any[]>({
+    queryKey: ["tenantUsersForDomain", domain],
+    queryFn: async () => {
+      if (!actor || !domain) return [];
+      return (actor as any).getTenantUsersForDomain(domain);
+    },
+    enabled: !!actor && !isFetching && !!domain,
+  });
+}
+
+export function useUpdateTenantUserRole() {
+  const { actor } = useActor();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ userId, role }: { userId: string; role: string }) => {
+      if (!actor) throw new Error("No actor");
+      return (actor as any).updateTenantUserRole(userId, role);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["tenantUsers"] });
+      qc.invalidateQueries({ queryKey: ["tenantUsersForDomain"] });
+      toast.success("Role updated");
+    },
+    onError: () => toast.error("Failed to update role"),
+  });
+}

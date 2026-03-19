@@ -1,39 +1,36 @@
 # CybXSan GRC Platform
 
 ## Current State
-- Tenant users login with email/password; session stored in localStorage
-- All backend calls use Internet Identity principal (anonymous for tenant users)
-- `getCallerTenantId(caller)` uses `userTenantMap` (II principals only), returns 0 for tenant users
-- Result: tenant users see Global/seed data (tenantId=0), get "not assigned to org" error on add
-- Admin Tenants tab: can create org tenants but no option to create tenant users directly
-- Compliance/Governance also use callerTenantId which is broken for tenant users
+- Multi-tenant GRC platform with Internet Identity admin auth and email/password tenant user auth
+- Risk register, compliance, governance, document repository, dashboard modules
+- Tenant data isolation: `getRisks()` and `getRisksAsTenantUser(userId)` both filter by tenant on backend
+- `createRiskAsTenantUser` exists but hardcodes `status = #open`, ignoring input status
+- No `updateRiskAsTenantUser` backend method; tenant users' edit calls fall through to II actor path and fail
+- No tenant user management page for tenant organizations to manage their own users
+- Dashboard stats use separate query paths for admin vs tenant users
 
 ## Requested Changes (Diff)
 
 ### Add
-- Backend: `getRisksAsTenantUser(userId: Text)` - looks up user's domain → org → filters risks
-- Backend: `createRiskAsTenantUser(userId: Text, input: CreateRiskInput)` - assigns risk to user's org
-- Backend: `getGovernanceItemsAsTenantUser(userId: Text)`
-- Backend: `getComplianceFrameworksAsTenantUser(userId: Text)` 
-- Backend: `createTenantUserByAdmin(input: AdminCreateTenantUserInput)` - admin creates pre-approved tenant user
-- Frontend: TenantUserContext to pass tenantUser to all pages
-- Frontend: Admin Tenants tab - "Create Tenant User" button/dialog
+- `updateRiskAsTenantUser(userId: Text, input: UpdateRiskInput)` backend method: looks up tenant by userId string, verifies risk belongs to that tenant, updates all fields including status
+- `getTenantUsersForDomain(domain: Text)` backend method: returns all tenant users for a given domain (for tenant org admins)
+- `updateTenantUserRole(userId: Text, role: Text)` backend method: allows updating a tenant user's role within their org
+- Tenant User Management page (`/tenant/users`): accessible to tenant users, shows users in the same domain/org, allows adding new users and changing roles
+- Navigation link to User Management for tenant users in sidebar
 
 ### Modify
-- RiskRegister: if tenantUser in context, use `getRisksAsTenantUser` and `createRiskAsTenantUser`; `hasTenant = true` for tenant users
-- ComplianceStandards: filter by tenantUser's domain/org
-- Governance: filter by tenantUser's domain/org
-- App.tsx: provide TenantUserContext wrapping authenticated tenant user views
-- Backend: seed data with tenantId=0 should NOT be shown to tenant users (only admins)
+- `createRiskAsTenantUser`: pass `input.status` through instead of hardcoding `#open`
+- Frontend RiskRegister: use `updateRiskAsTenantUser` hook when current user is a tenant user
+- Dashboard: ensure stats are correctly tenant-scoped for tenant users
 
 ### Remove
-- Nothing removed
+- Nothing
 
 ## Implementation Plan
-1. Backend: add tenant-user session APIs (by userId lookup) for risks, governance, compliance
-2. Backend: add `createTenantUserByAdmin` (admin creates pre-approved tenant user)
-3. Frontend: create TenantUserContext.tsx, wrap Layout with it
-4. Frontend: RiskRegister reads tenantUser from context, uses correct APIs
-5. Frontend: ComplianceStandards reads tenantUser from context, filters data
-6. Frontend: Governance reads tenantUser from context, filters data
-7. Frontend: Admin.tsx Tenants tab - add Create Tenant User card with form
+1. Add `updateRiskAsTenantUser` to backend with full field support including status
+2. Fix `createRiskAsTenantUser` to pass status from input
+3. Add `getTenantUsersForDomain` and `updateTenantUserRole` backend methods
+4. Frontend: wire new hooks for tenant user risk update
+5. Frontend: build Tenant User Management page with user list, add user form, role change
+6. Frontend: add navigation link for tenant users
+7. Verify dashboard stats are correctly tenant-scoped

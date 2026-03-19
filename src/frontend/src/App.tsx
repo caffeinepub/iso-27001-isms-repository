@@ -23,6 +23,7 @@ import { Login } from "./pages/Login";
 import { RiskRegister } from "./pages/RiskRegister";
 import { TenantLogin } from "./pages/TenantLogin";
 import { TenantSignUp } from "./pages/TenantSignUp";
+import { TenantUserManagement } from "./pages/TenantUserManagement";
 import { TrustCenter } from "./pages/TrustCenter";
 // ── Admin token helpers ───────────────────────────────────────────────────
 function getAdminTokenFromUrl(): string | null {
@@ -70,7 +71,8 @@ export type Page =
   | "riskRegister"
   | "governance"
   | "compliance"
-  | "trustCenter";
+  | "trustCenter"
+  | "tenantUsers";
 
 type AuthView = "main" | "tenantLogin" | "tenantSignUp";
 
@@ -217,6 +219,7 @@ function AppShell() {
           {page === "compliance" && <ComplianceStandards />}
           {page === "governance" && <Governance />}
           {page === "trustCenter" && <TrustCenter />}
+          {page === "tenantUsers" && <TenantUserManagement />}
         </Layout>
       </TenantUserProvider>
     );

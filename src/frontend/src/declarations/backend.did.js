@@ -319,6 +319,7 @@ export const UpdateRiskInput = IDL.Record({
   'treatmentPlanDescription' : IDL.Opt(IDL.Text),
   'likelihood' : IDL.Opt(IDL.Nat),
   'treatmentPlanTargetDate' : IDL.Opt(IDL.Text),
+  'status' : IDL.Opt(RiskStatus),
 });
 
 export const idlService = IDL.Service({
@@ -774,6 +775,7 @@ export const idlFactory = ({ IDL }) => {
     'treatmentPlanDescription' : IDL.Opt(IDL.Text),
     'likelihood' : IDL.Opt(IDL.Nat),
     'treatmentPlanTargetDate' : IDL.Opt(IDL.Text),
+    'status' : IDL.Opt(RiskStatus),
   });
   
   return IDL.Service({

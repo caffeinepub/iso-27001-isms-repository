@@ -240,6 +240,7 @@ actor {
     treatmentPlanTargetDate : Text;
     treatmentPlanReviewDate : Text;
     dueDate : Text;
+    status : ?RiskStatus;
   };
 
   public type UpdateRiskInput = {
@@ -259,6 +260,7 @@ actor {
     treatmentPlanTargetDate : ?Text;
     treatmentPlanReviewDate : ?Text;
     dueDate : ?Text;
+    status : ?RiskStatus;
   };
 
   public type RiskStats = {
@@ -871,7 +873,7 @@ actor {
       treatmentPlanTargetDate = input.treatmentPlanTargetDate;
       treatmentPlanReviewDate = input.treatmentPlanReviewDate;
       dueDate = input.dueDate;
-      status = #open;
+      status = switch (input.status) { case (null) { #open }; case (?val) { val } };
       createdAt = getCurrentTime();
       updatedAt = getCurrentTime();
     };
@@ -954,7 +956,7 @@ actor {
             case (?val) { val };
           };
           dueDate = switch (input.dueDate) { case (null) { existing.dueDate }; case (?val) { val } };
-          status = existing.status;
+          status = switch (input.status) { case (null) { existing.status }; case (?val) { val } };
           createdAt = existing.createdAt;
           updatedAt = getCurrentTime();
         };
@@ -1485,6 +1487,26 @@ actor {
     tenantUsers.values().toArray();
   };
 
+
+  // Get all tenant users for a specific domain (accessible to approved users of that domain)
+  public query ({ caller }) func getTenantUsersForDomain(domain : Text) : async [TenantUser] {
+    tenantUsers.values().toArray().filter(func(u) { u.domain == domain and u.approved });
+  };
+
+  // Update a tenant user's role (admin only)
+  public shared ({ caller }) func updateTenantUserRole(userId : Text, role : Text) : async () {
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only admins can update user roles");
+    };
+    switch (tenantUsers.get(userId)) {
+      case (null) { Runtime.trap("User not found") };
+      case (?user) {
+        let updatedUser = { user with role = role };
+        tenantUsers.add(userId, updatedUser);
+      };
+    };
+  };
+
   // Admin-only function
   public shared ({ caller }) func approveTenantUser(userId : Text) : async () {
     if (not (AccessControl.isAdmin(accessControlState, caller))) {
@@ -1690,7 +1712,7 @@ actor {
           treatmentPlanTargetDate = input.treatmentPlanTargetDate;
           treatmentPlanReviewDate = input.treatmentPlanReviewDate;
           dueDate = input.dueDate;
-          status = #open;
+          status = switch (input.status) { case (null) { #open }; case (?s) { s } };
           createdAt = getCurrentTime();
           updatedAt = getCurrentTime();
         };
@@ -1717,6 +1739,54 @@ actor {
       };
     };
   };
+
+  public shared ({ caller }) func updateRiskAsTenantUser(userId : Text, input : UpdateRiskInput) : async RiskItem {
+    switch (tenantUsers.get(userId)) {
+      case (null) { Runtime.trap("User not found") };
+      case (?user) {
+        if (not user.approved) { Runtime.trap("User not approved") };
+        let natId = getTenantNatIdForDomain(user.domain);
+        switch (risks.get(input.id)) {
+          case (null) { Runtime.trap("Risk not found") };
+          case (?existing) {
+            if (existing.tenantId != natId) { Runtime.trap("Unauthorized: Not your tenant\'s risk") };
+            let likelihood = switch (input.likelihood) { case (null) { existing.likelihood }; case (?val) { val } };
+            let impact = switch (input.impact) { case (null) { existing.impact }; case (?val) { val } };
+            let inherentRiskScore = likelihood * impact;
+            let mitigationControls = switch (input.mitigationControls) { case (null) { existing.mitigationControls }; case (?val) { val } };
+            let residualRiskScore = calculateResidualRiskScore(inherentRiskScore, mitigationControls);
+            let riskLevel = determineRiskLevel(residualRiskScore);
+            let updated : RiskItem = {
+              existing with
+              title = switch (input.title) { case (null) { existing.title }; case (?val) { val } };
+              description = switch (input.description) { case (null) { existing.description }; case (?val) { val } };
+              threatCategory = switch (input.threatCategory) { case (null) { existing.threatCategory }; case (?val) { val } };
+              vulnerability = switch (input.vulnerability) { case (null) { existing.vulnerability }; case (?val) { val } };
+              likelihood;
+              impact;
+              inherentRiskScore;
+              mitigationControls;
+              residualRiskScore;
+              riskLevel;
+              treatment = switch (input.treatment) { case (null) { existing.treatment }; case (?val) { val } };
+              treatmentOwner = switch (input.treatmentOwner) { case (null) { existing.treatmentOwner }; case (?val) { val } };
+              treatmentNotes = switch (input.treatmentNotes) { case (null) { existing.treatmentNotes }; case (?val) { val } };
+              treatmentPlanDescription = switch (input.treatmentPlanDescription) { case (null) { existing.treatmentPlanDescription }; case (?val) { val } };
+              treatmentPlanOwner = switch (input.treatmentPlanOwner) { case (null) { existing.treatmentPlanOwner }; case (?val) { val } };
+              treatmentPlanTargetDate = switch (input.treatmentPlanTargetDate) { case (null) { existing.treatmentPlanTargetDate }; case (?val) { val } };
+              treatmentPlanReviewDate = switch (input.treatmentPlanReviewDate) { case (null) { existing.treatmentPlanReviewDate }; case (?val) { val } };
+              dueDate = switch (input.dueDate) { case (null) { existing.dueDate }; case (?val) { val } };
+              status = switch (input.status) { case (null) { existing.status }; case (?val) { val } };
+              updatedAt = getCurrentTime();
+            };
+            risks.add(input.id, updated);
+            updated;
+          };
+        };
+      };
+    };
+  };
+
 
   public query ({ caller }) func getGovernanceItemsAsTenantUser(userId : Text) : async [GovernanceItem] {
     switch (tenantUsers.get(userId)) {

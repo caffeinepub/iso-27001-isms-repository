@@ -255,6 +255,7 @@ export interface UpdateRiskInput {
   'treatmentPlanDescription' : [] | [string],
   'likelihood' : [] | [bigint],
   'treatmentPlanTargetDate' : [] | [string],
+  'status' : [] | [RiskStatus],
 }
 export interface UploadedDocumentMeta {
   'id' : bigint,

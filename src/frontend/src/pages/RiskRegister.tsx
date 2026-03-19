@@ -68,6 +68,8 @@ import {
   type UpdateRiskInput,
 } from "../backend";
 import { useTenantUser } from "../contexts/TenantUserContext";
+
+type RiskFormState = Omit<CreateRiskInput, "status"> & { status: RiskStatus };
 import {
   useCallerRole,
   useCallerTenant,
@@ -79,6 +81,7 @@ import {
   useRisks,
   useRisksAsTenantUser,
   useUpdateRisk,
+  useUpdateRiskAsTenantUser,
 } from "../hooks/useQueries";
 
 // ── ISO 27001 Annex A Controls ──────────────────────────────────────────────
@@ -872,7 +875,7 @@ function RiskScoreDisplay({
 }
 
 // ── EMPTY FORM ─────────────────────────────────────────────────────────────
-const EMPTY_FORM: CreateRiskInput = {
+const EMPTY_FORM: RiskFormState = {
   title: "",
   description: "",
   threatCategory: ThreatCategory.technicalProblems,
@@ -888,6 +891,7 @@ const EMPTY_FORM: CreateRiskInput = {
   treatmentPlanTargetDate: "",
   treatmentPlanReviewDate: "",
   dueDate: "",
+  status: RiskStatus.open,
 };
 
 // ── Export Functions ──────────────────────────────────────────────────────
@@ -1017,6 +1021,7 @@ export function RiskRegister() {
   const { data: riskStats } = useRiskStats();
   const createRiskII = useCreateRisk();
   const updateRisk = useUpdateRisk();
+  const updateRiskTU = useUpdateRiskAsTenantUser();
   const deleteRiskII = useDeleteRisk();
   const { data: callerRole } = useCallerRole();
   const { data: callerTenant, isLoading: tenantLoading } = useCallerTenant();
@@ -1054,7 +1059,7 @@ export function RiskRegister() {
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingRisk, setEditingRisk] = useState<RiskItem | null>(null);
-  const [form, setForm] = useState<CreateRiskInput>(EMPTY_FORM);
+  const [form, setForm] = useState<RiskFormState>(EMPTY_FORM);
   const [controlMaturity, setControlMaturity] = useState<string>("low");
   const [treatmentPlanOpen, setTreatmentPlanOpen] = useState(false);
 
@@ -1099,6 +1104,7 @@ export function RiskRegister() {
       treatmentPlanTargetDate: risk.treatmentPlanTargetDate,
       treatmentPlanReviewDate: risk.treatmentPlanReviewDate,
       dueDate: risk.dueDate,
+      status: risk.status,
     });
     setControlMaturity("low");
     setTreatmentPlanOpen(!!risk.treatmentPlanDescription);
@@ -1108,10 +1114,32 @@ export function RiskRegister() {
   async function handleSubmit() {
     if (!form.title.trim()) return;
     if (editingRisk) {
-      const input: UpdateRiskInput = { id: editingRisk.id, ...form };
-      await updateRisk.mutateAsync(input);
+      const input: UpdateRiskInput = {
+        id: editingRisk.id,
+        title: form.title,
+        description: form.description,
+        threatCategory: form.threatCategory,
+        vulnerability: form.vulnerability,
+        likelihood: form.likelihood,
+        impact: form.impact,
+        mitigationControls: form.mitigationControls,
+        treatment: form.treatment,
+        treatmentOwner: form.treatmentOwner,
+        treatmentNotes: form.treatmentNotes,
+        treatmentPlanDescription: form.treatmentPlanDescription,
+        treatmentPlanOwner: form.treatmentPlanOwner,
+        treatmentPlanTargetDate: form.treatmentPlanTargetDate,
+        treatmentPlanReviewDate: form.treatmentPlanReviewDate,
+        dueDate: form.dueDate,
+        status: form.status,
+      };
+      if (isTenantUser && tenantUser) {
+        await updateRiskTU.mutateAsync({ userId: tenantUser.id, input });
+      } else {
+        await updateRisk.mutateAsync(input);
+      }
     } else {
-      await createRisk.mutateAsync(form);
+      await createRisk.mutateAsync({ ...form });
     }
     setDialogOpen(false);
   }
@@ -1762,6 +1790,29 @@ export function RiskRegister() {
                     setForm((p) => ({ ...p, dueDate: e.target.value }))
                   }
                 />
+              </div>
+
+              {/* Status */}
+              <div>
+                <Label className="text-xs">Status</Label>
+                <Select
+                  value={form.status ?? RiskStatus.open}
+                  onValueChange={(v) => {
+                    setForm((p) => ({ ...p, status: v as RiskStatus }));
+                  }}
+                >
+                  <SelectTrigger
+                    data-ocid="risk.status.select"
+                    className="mt-1.5 h-8 text-xs"
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="open">Open</SelectItem>
+                    <SelectItem value="inTreatment">In Treatment</SelectItem>
+                    <SelectItem value="closed">Closed</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
