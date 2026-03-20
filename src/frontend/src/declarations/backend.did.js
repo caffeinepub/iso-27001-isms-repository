@@ -97,6 +97,7 @@ export const CreateRiskInput = IDL.Record({
   'treatmentPlanDescription' : IDL.Text,
   'likelihood' : IDL.Nat,
   'treatmentPlanTargetDate' : IDL.Text,
+  'status' : IDL.Opt(IDL.Variant({'open': IDL.Null, 'closed': IDL.Null, 'inTreatment': IDL.Null})),
 });
 export const TenantCreateInput = IDL.Record({
   'domain' : IDL.Text,
@@ -459,6 +460,11 @@ export const idlService = IDL.Service({
       [],
     ),
   'updateRisk' : IDL.Func([UpdateRiskInput], [RiskItem], []),
+  'createRiskAsTenantUser' : IDL.Func([IDL.Text, CreateRiskInput], [IDL.Nat], []),
+  'getRisksAsTenantUser' : IDL.Func([IDL.Text], [IDL.Vec(RiskItem)], ['query']),
+  'updateRiskAsTenantUser' : IDL.Func([IDL.Text, UpdateRiskInput], [RiskItem], []),
+  'deleteRiskAsTenantUser' : IDL.Func([IDL.Text, IDL.Nat], [], []),
+  'getTenantUsersForDomain' : IDL.Func([IDL.Text], [IDL.Vec(TenantUser)], ['query']),
 });
 
 export const idlInitArgs = [];
@@ -553,6 +559,7 @@ export const idlFactory = ({ IDL }) => {
     'treatmentPlanDescription' : IDL.Text,
     'likelihood' : IDL.Nat,
     'treatmentPlanTargetDate' : IDL.Text,
+    'status' : IDL.Opt(IDL.Variant({'open': IDL.Null, 'closed': IDL.Null, 'inTreatment': IDL.Null})),
   });
   const TenantCreateInput = IDL.Record({
     'domain' : IDL.Text,
@@ -923,6 +930,11 @@ export const idlFactory = ({ IDL }) => {
         [],
       ),
     'updateRisk' : IDL.Func([UpdateRiskInput], [RiskItem], []),
+    'createRiskAsTenantUser' : IDL.Func([IDL.Text, CreateRiskInput], [IDL.Nat], []),
+    'getRisksAsTenantUser' : IDL.Func([IDL.Text], [IDL.Vec(RiskItem)], ['query']),
+    'updateRiskAsTenantUser' : IDL.Func([IDL.Text, UpdateRiskInput], [RiskItem], []),
+    'deleteRiskAsTenantUser' : IDL.Func([IDL.Text, IDL.Nat], [], []),
+    'getTenantUsersForDomain' : IDL.Func([IDL.Text], [IDL.Vec(TenantUser)], ['query']),
   });
 };
 

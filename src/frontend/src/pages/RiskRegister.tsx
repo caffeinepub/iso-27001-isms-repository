@@ -1231,36 +1231,66 @@ export function RiskRegister() {
 
       {/* Stats row */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-        {[
-          {
-            label: "Total Risks",
-            value: riskStats ? Number(riskStats.total) : 0,
-            color: "text-foreground",
-          },
-          {
-            label: "Critical",
-            value: riskStats?.byLevel.find(
-              ([l]) => l === RiskLevel.critical,
-            )?.[1]
+        {(() => {
+          // For tenant users, compute stats from their own risks list
+          const statsTotal = isTenantUser
+            ? (risks?.length ?? 0)
+            : riskStats
+              ? Number(riskStats.total)
+              : 0;
+          const statsCritical = isTenantUser
+            ? (risks?.filter((r) => r.riskLevel === RiskLevel.critical)
+                .length ?? 0)
+            : riskStats?.byLevel.find(([l]) => l === RiskLevel.critical)?.[1]
               ? Number(
                   riskStats!.byLevel.find(
                     ([l]) => l === RiskLevel.critical,
                   )![1],
                 )
-              : 0,
-            color: "text-red-400",
-          },
-          {
-            label: "Avg Inherent",
-            value: riskStats ? Number(riskStats.avgInherentScore) : 0,
-            color: "text-orange-400",
-          },
-          {
-            label: "Avg Residual",
-            value: riskStats ? Number(riskStats.avgResidualScore) : 0,
-            color: "text-primary",
-          },
-        ].map((s) => (
+              : 0;
+          const statsAvgInherent = isTenantUser
+            ? risks && risks.length > 0
+              ? Math.round(
+                  risks.reduce((s, r) => s + Number(r.inherentRiskScore), 0) /
+                    risks.length,
+                )
+              : 0
+            : riskStats
+              ? Number(riskStats.avgInherentScore)
+              : 0;
+          const statsAvgResidual = isTenantUser
+            ? risks && risks.length > 0
+              ? Math.round(
+                  risks.reduce((s, r) => s + Number(r.residualRiskScore), 0) /
+                    risks.length,
+                )
+              : 0
+            : riskStats
+              ? Number(riskStats.avgResidualScore)
+              : 0;
+          return [
+            {
+              label: "Total Risks",
+              value: statsTotal,
+              color: "text-foreground",
+            },
+            {
+              label: "Critical",
+              value: statsCritical,
+              color: "text-red-400",
+            },
+            {
+              label: "Avg Inherent",
+              value: statsAvgInherent,
+              color: "text-orange-400",
+            },
+            {
+              label: "Avg Residual",
+              value: statsAvgResidual,
+              color: "text-primary",
+            },
+          ];
+        })().map((s) => (
           <Card key={s.label} className="bg-card border-border">
             <CardContent className="p-3">
               <p className="text-[11px] text-muted-foreground mb-1">

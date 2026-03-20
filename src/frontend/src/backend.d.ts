@@ -373,4 +373,9 @@ export interface backendInterface {
     updateComplianceControl(input: UpdateComplianceControlInput): Promise<ComplianceControl>;
     updateGovernanceItem(input: UpdateGovernanceItemInput): Promise<GovernanceItem>;
     updateRisk(input: UpdateRiskInput): Promise<RiskItem>;
+    createRiskAsTenantUser(userId: string, input: CreateRiskInput): Promise<bigint>;
+    getRisksAsTenantUser(userId: string): Promise<Array<RiskItem>>;
+    updateRiskAsTenantUser(userId: string, input: UpdateRiskInput): Promise<RiskItem>;
+    deleteRiskAsTenantUser(userId: string, id: bigint): Promise<void>;
+    getTenantUsersForDomain(domain: string): Promise<Array<any>>;
 }

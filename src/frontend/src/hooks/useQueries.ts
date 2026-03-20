@@ -821,7 +821,7 @@ export function useRisksAsTenantUser(userId: string | null) {
     queryKey: ["risksAsTenantUser", userId],
     queryFn: async () => {
       if (!actor || !userId) return [];
-      return (actor as any).getRisksAsTenantUser(userId);
+      return actor.getRisksAsTenantUser(userId);
     },
     enabled: !!actor && !isFetching && !!userId,
   });
@@ -836,7 +836,7 @@ export function useCreateRiskAsTenantUser() {
       input,
     }: { userId: string; input: CreateRiskInput }) => {
       if (!actor) throw new Error("No actor");
-      return (actor as any).createRiskAsTenantUser(userId, input);
+      return actor.createRiskAsTenantUser(userId, input);
     },
     onSuccess: (_: any, vars: any) => {
       qc.invalidateQueries({ queryKey: ["risksAsTenantUser", vars.userId] });
@@ -855,7 +855,7 @@ export function useDeleteRiskAsTenantUser() {
       riskId,
     }: { userId: string; riskId: bigint }) => {
       if (!actor) throw new Error("No actor");
-      return (actor as any).deleteRiskAsTenantUser(userId, riskId);
+      return actor.deleteRiskAsTenantUser(userId, riskId);
     },
     onSuccess: (_: any, vars: any) => {
       qc.invalidateQueries({ queryKey: ["risksAsTenantUser", vars.userId] });
@@ -967,7 +967,7 @@ export function useUpdateRiskAsTenantUser() {
   return useMutation({
     mutationFn: async ({ userId, input }: { userId: string; input: any }) => {
       if (!actor) throw new Error("No actor");
-      return (actor as any).updateRiskAsTenantUser(userId, input);
+      return actor.updateRiskAsTenantUser(userId, input);
     },
     onSuccess: (_data, vars) => {
       qc.invalidateQueries({ queryKey: ["risksAsTenantUser", vars.userId] });
@@ -983,7 +983,7 @@ export function useGetTenantUsersForDomain(domain: string | null) {
     queryKey: ["tenantUsersForDomain", domain],
     queryFn: async () => {
       if (!actor || !domain) return [];
-      return (actor as any).getTenantUsersForDomain(domain);
+      return actor.getTenantUsersForDomain(domain);
     },
     enabled: !!actor && !isFetching && !!domain,
   });

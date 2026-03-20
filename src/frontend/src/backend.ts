@@ -475,6 +475,11 @@ export interface backendInterface {
     updateComplianceControl(input: UpdateComplianceControlInput): Promise<ComplianceControl>;
     updateGovernanceItem(input: UpdateGovernanceItemInput): Promise<GovernanceItem>;
     updateRisk(input: UpdateRiskInput): Promise<RiskItem>;
+    createRiskAsTenantUser(userId: string, input: CreateRiskInput): Promise<bigint>;
+    getRisksAsTenantUser(userId: string): Promise<Array<RiskItem>>;
+    updateRiskAsTenantUser(userId: string, input: UpdateRiskInput): Promise<RiskItem>;
+    deleteRiskAsTenantUser(userId: string, id: bigint): Promise<void>;
+    getTenantUsersForDomain(domain: string): Promise<Array<any>>;
 }
 import type { ApprovalStatus as _ApprovalStatus, ComplianceControl as _ComplianceControl, ControlStatus as _ControlStatus, CreateComplianceControlInput as _CreateComplianceControlInput, CreateGovernanceItemInput as _CreateGovernanceItemInput, CreateRiskInput as _CreateRiskInput, GovAttachmentMeta as _GovAttachmentMeta, GovernanceCategory as _GovernanceCategory, GovernanceItem as _GovernanceItem, GovernanceStatus as _GovernanceStatus, GovernanceSummary as _GovernanceSummary, MaturityLevel as _MaturityLevel, MitigationControl as _MitigationControl, RegistrationResult as _RegistrationResult, RiskItem as _RiskItem, RiskLevel as _RiskLevel, RiskStats as _RiskStats, RiskStatus as _RiskStatus, RiskTreatment as _RiskTreatment, Tenant as _Tenant, TenantLoginResult as _TenantLoginResult, TenantOrg as _TenantOrg, TenantUserLoginResponse as _TenantUserLoginResponse, ThreatCategory as _ThreatCategory, UpdateComplianceControlInput as _UpdateComplianceControlInput, UpdateGovernanceItemInput as _UpdateGovernanceItemInput, UpdateRiskInput as _UpdateRiskInput, UserApprovalInfo as _UserApprovalInfo, UserProfile as _UserProfile, UserRole as _UserRole, _CaffeineStorageRefillInformation as __CaffeineStorageRefillInformation, _CaffeineStorageRefillResult as __CaffeineStorageRefillResult } from "./declarations/backend.did.d.ts";
 export class Backend implements backendInterface {
@@ -1318,6 +1323,67 @@ export class Backend implements backendInterface {
             const result = await this.actor.updateRisk(to_candid_UpdateRiskInput_n93(this._uploadFile, this._downloadFile, arg0));
             return from_candid_RiskItem_n53(this._uploadFile, this._downloadFile, result);
         }
+    }
+    async createRiskAsTenantUser(userId: string, arg1: CreateRiskInput): Promise<bigint> {
+        const encoded = to_candid_CreateRiskInput_n18(this._uploadFile, this._downloadFile, arg1);
+        if (this.processError) {
+            try {
+                return await (this.actor as any).createRiskAsTenantUser(userId, encoded);
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        }
+        return await (this.actor as any).createRiskAsTenantUser(userId, encoded);
+    }
+    async getRisksAsTenantUser(userId: string): Promise<Array<RiskItem>> {
+        if (this.processError) {
+            try {
+                const result = await (this.actor as any).getRisksAsTenantUser(userId);
+                return from_candid_vec_n74(this._uploadFile, this._downloadFile, result);
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        }
+        const result = await (this.actor as any).getRisksAsTenantUser(userId);
+        return from_candid_vec_n74(this._uploadFile, this._downloadFile, result);
+    }
+    async updateRiskAsTenantUser(userId: string, arg1: UpdateRiskInput): Promise<RiskItem> {
+        const encoded = to_candid_UpdateRiskInput_n93(this._uploadFile, this._downloadFile, arg1);
+        if (this.processError) {
+            try {
+                const result = await (this.actor as any).updateRiskAsTenantUser(userId, encoded);
+                return from_candid_RiskItem_n53(this._uploadFile, this._downloadFile, result);
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        }
+        const result = await (this.actor as any).updateRiskAsTenantUser(userId, encoded);
+        return from_candid_RiskItem_n53(this._uploadFile, this._downloadFile, result);
+    }
+    async deleteRiskAsTenantUser(userId: string, id: bigint): Promise<void> {
+        if (this.processError) {
+            try {
+                return await (this.actor as any).deleteRiskAsTenantUser(userId, id);
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        }
+        return await (this.actor as any).deleteRiskAsTenantUser(userId, id);
+    }
+    async getTenantUsersForDomain(domain: string): Promise<Array<any>> {
+        if (this.processError) {
+            try {
+                return await (this.actor as any).getTenantUsersForDomain(domain);
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        }
+        return await (this.actor as any).getTenantUsersForDomain(domain);
     }
 }
 function from_candid_ApprovalStatus_n79(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _ApprovalStatus): ApprovalStatus {

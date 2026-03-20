@@ -145,9 +145,7 @@ export function TenantUserManagement() {
                         </TableCell>
                         <TableCell>{roleBadge(user.role || "user")}</TableCell>
                         <TableCell>
-                          {statusBadge(
-                            user.isApproved ? "approved" : "pending",
-                          )}
+                          {statusBadge(user.approved ? "approved" : "pending")}
                         </TableCell>
                       </TableRow>
                     ))}
