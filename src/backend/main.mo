@@ -1832,6 +1832,34 @@ actor {
     };
   };
 
+
+  public shared ({ caller }) func updateGovernanceItemAsTenantUser(userId : Text, input : UpdateGovernanceItemInput) : async GovernanceItem {
+    switch (tenantUsers.get(userId)) {
+      case (null) { Runtime.trap("User not found") };
+      case (?user) {
+        if (not user.approved) { Runtime.trap("User not approved") };
+        switch (governanceItems.get(input.id)) {
+          case (null) { Runtime.trap("Governance item not found") };
+          case (?existing) {
+            let updated : GovernanceItem = {
+              id = existing.id;
+              title = switch (input.title) { case (null) { existing.title }; case (?val) { val } };
+              category = switch (input.category) { case (null) { existing.category }; case (?val) { val } };
+              description = switch (input.description) { case (null) { existing.description }; case (?val) { val } };
+              owner = switch (input.owner) { case (null) { existing.owner }; case (?val) { val } };
+              status = switch (input.status) { case (null) { existing.status }; case (?val) { val } };
+              reviewDate = switch (input.reviewDate) { case (null) { existing.reviewDate }; case (?val) { val } };
+              approvedBy = switch (input.approvedBy) { case (null) { existing.approvedBy }; case (?val) { val } };
+              createdAt = existing.createdAt;
+              updatedAt = getCurrentTime();
+            };
+            governanceItems.add(input.id, updated);
+            updated;
+          };
+        };
+      };
+    };
+  };
   public query ({ caller }) func getComplianceControlsAsTenantUser(userId : Text, frameworkId : Nat) : async [ComplianceControl] {
     switch (tenantUsers.get(userId)) {
       case (null) { Runtime.trap("User not found") };

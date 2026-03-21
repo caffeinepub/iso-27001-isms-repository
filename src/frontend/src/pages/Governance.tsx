@@ -54,6 +54,7 @@ import {
   useSetGovernanceAttachment,
   useSetGovernanceFrameworkMapping,
   useUpdateGovernanceItem,
+  useUpdateGovernanceItemAsTenantUser,
 } from "../hooks/useQueries";
 
 function statusColor(status: GovernanceStatus) {
@@ -95,13 +96,37 @@ function categoryLabel(cat: GovernanceCategory) {
   }
 }
 
-const EMPTY_FORM: CreateGovernanceItemInput = {
+function statusLabel(status: GovernanceStatus) {
+  switch (status) {
+    case GovernanceStatus.active:
+      return "Active";
+    case GovernanceStatus.draft:
+      return "Draft";
+    case GovernanceStatus.underReview:
+      return "Under Review";
+    case GovernanceStatus.retired:
+      return "Retired";
+  }
+}
+
+interface GovernanceForm {
+  title: string;
+  description: string;
+  category: GovernanceCategory;
+  owner: string;
+  approvedBy: string;
+  reviewDate: string;
+  status: GovernanceStatus;
+}
+
+const EMPTY_FORM: GovernanceForm = {
   title: "",
   description: "",
   category: GovernanceCategory.policy,
   owner: "",
   approvedBy: "",
   reviewDate: "",
+  status: GovernanceStatus.draft,
 };
 
 function GovernanceCard({
@@ -134,9 +159,7 @@ function GovernanceCard({
               {categoryLabel(item.category)}
             </Badge>
             <Badge className={`text-[10px] ${statusColor(item.status)}`}>
-              {item.status === GovernanceStatus.underReview
-                ? "Under Review"
-                : item.status}
+              {statusLabel(item.status)}
             </Badge>
             {frameworkBadge && (
               <Badge className="text-[10px] bg-blue-500/15 text-blue-400 border-blue-500/30">
@@ -212,13 +235,21 @@ export function Governance() {
   const createItemII = useCreateGovernanceItem();
   const createItemTU = useCreateGovernanceItemAsTenantUser();
   const createItem = {
-    mutateAsync: async (input: any) =>
+    mutateAsync: async (input: CreateGovernanceItemInput) =>
       isTenantUser
         ? createItemTU.mutateAsync({ userId: tenantUser!.id, input })
         : createItemII.mutateAsync(input),
     isPending: isTenantUser ? createItemTU.isPending : createItemII.isPending,
   };
-  const updateItem = useUpdateGovernanceItem();
+  const updateItemII = useUpdateGovernanceItem();
+  const updateItemTU = useUpdateGovernanceItemAsTenantUser();
+  const updateItem = {
+    mutateAsync: async (input: UpdateGovernanceItemInput) =>
+      isTenantUser
+        ? updateItemTU.mutateAsync({ userId: tenantUser!.id, input })
+        : updateItemII.mutateAsync(input),
+    isPending: isTenantUser ? updateItemTU.isPending : updateItemII.isPending,
+  };
   const deleteItem = useDeleteGovernanceItem();
 
   const { data: frameworkMappings = new Map() } =
@@ -231,7 +262,7 @@ export function Governance() {
   const [activeTab, setActiveTab] = useState("all");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<GovernanceItem | null>(null);
-  const [form, setForm] = useState<CreateGovernanceItemInput>(EMPTY_FORM);
+  const [form, setForm] = useState<GovernanceForm>(EMPTY_FORM);
   const [selectedFrameworkId, setSelectedFrameworkId] = useState("none");
   const [attachFile, setAttachFile] = useState<File | null>(null);
   const [attachProgress, setAttachProgress] = useState(0);
@@ -262,6 +293,7 @@ export function Governance() {
       owner: item.owner,
       approvedBy: item.approvedBy,
       reviewDate: item.reviewDate,
+      status: item.status,
     });
     const idStr = item.id.toString();
     const mapping = frameworkMappings.get(idStr);
@@ -278,11 +310,32 @@ export function Governance() {
     let itemId: bigint;
 
     if (editingItem) {
-      const input: UpdateGovernanceItemInput = { id: editingItem.id, ...form };
+      const input: UpdateGovernanceItemInput = {
+        id: editingItem.id,
+        title: form.title,
+        description: form.description,
+        category: form.category,
+        owner: form.owner,
+        approvedBy: form.approvedBy,
+        reviewDate: form.reviewDate,
+        status: form.status,
+      };
       await updateItem.mutateAsync(input);
       itemId = editingItem.id;
     } else {
-      itemId = await createItem.mutateAsync(form);
+      const createInput: CreateGovernanceItemInput = {
+        title: form.title,
+        description: form.description,
+        category: form.category,
+        owner: form.owner,
+        approvedBy: form.approvedBy,
+        reviewDate: form.reviewDate,
+      };
+      itemId = await createItem.mutateAsync(createInput);
+      // After creation, if status is not draft, update it
+      if (form.status !== GovernanceStatus.draft) {
+        await updateItem.mutateAsync({ id: itemId, status: form.status });
+      }
     }
 
     // Save/remove framework mapping
@@ -329,10 +382,7 @@ export function Governance() {
         color: "text-foreground",
       },
       ...summary.byStatus.map(([status, count]) => ({
-        label:
-          status === GovernanceStatus.underReview
-            ? "Under Review"
-            : (status as string),
+        label: statusLabel(status),
         value: Number(count),
         color:
           status === GovernanceStatus.active
@@ -552,40 +602,36 @@ export function Governance() {
                   </SelectContent>
                 </Select>
               </div>
-              {editingItem && (
-                <div>
-                  <Label className="text-xs">Status</Label>
-                  <Select
-                    value={editingItem.status as string}
-                    onValueChange={(v) =>
-                      setEditingItem((p) =>
-                        p ? { ...p, status: v as GovernanceStatus } : null,
-                      )
-                    }
+              <div>
+                <Label className="text-xs">Status</Label>
+                <Select
+                  value={form.status}
+                  onValueChange={(v) =>
+                    setForm((p) => ({ ...p, status: v as GovernanceStatus }))
+                  }
+                >
+                  <SelectTrigger
+                    data-ocid="governance.status.select"
+                    className="mt-1.5 h-8 text-xs"
                   >
-                    <SelectTrigger
-                      data-ocid="governance.status.select"
-                      className="mt-1.5 h-8 text-xs"
-                    >
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={GovernanceStatus.active}>
-                        Active
-                      </SelectItem>
-                      <SelectItem value={GovernanceStatus.draft}>
-                        Draft
-                      </SelectItem>
-                      <SelectItem value={GovernanceStatus.underReview}>
-                        Under Review
-                      </SelectItem>
-                      <SelectItem value={GovernanceStatus.retired}>
-                        Retired
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={GovernanceStatus.draft}>
+                      Draft
+                    </SelectItem>
+                    <SelectItem value={GovernanceStatus.underReview}>
+                      Under Review
+                    </SelectItem>
+                    <SelectItem value={GovernanceStatus.active}>
+                      Active
+                    </SelectItem>
+                    <SelectItem value={GovernanceStatus.retired}>
+                      Retired
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             <div className="grid sm:grid-cols-2 gap-4">
               <div>

@@ -1005,3 +1005,25 @@ export function useUpdateTenantUserRole() {
     onError: () => toast.error("Failed to update role"),
   });
 }
+
+export function useUpdateGovernanceItemAsTenantUser() {
+  const { actor } = useActor();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      userId,
+      input,
+    }: { userId: string; input: UpdateGovernanceItemInput }) => {
+      if (!actor) throw new Error("No actor");
+      return (actor as any).updateGovernanceItemAsTenantUser(userId, input);
+    },
+    onSuccess: (_data: any, vars: any) => {
+      qc.invalidateQueries({
+        queryKey: ["governanceItemsAsTenantUser", vars.userId],
+      });
+      qc.invalidateQueries({ queryKey: ["governanceSummary"] });
+      toast.success("Governance item updated");
+    },
+    onError: () => toast.error("Failed to update governance item"),
+  });
+}

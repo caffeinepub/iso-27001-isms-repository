@@ -378,4 +378,7 @@ export interface backendInterface {
     updateRiskAsTenantUser(userId: string, input: UpdateRiskInput): Promise<RiskItem>;
     deleteRiskAsTenantUser(userId: string, id: bigint): Promise<void>;
     getTenantUsersForDomain(domain: string): Promise<Array<any>>;
+    getGovernanceItemsAsTenantUser(userId: string): Promise<Array<GovernanceItem>>;
+    createGovernanceItemAsTenantUser(userId: string, input: CreateGovernanceItemInput): Promise<bigint>;
+    updateGovernanceItemAsTenantUser(userId: string, input: UpdateGovernanceItemInput): Promise<GovernanceItem>;
 }
