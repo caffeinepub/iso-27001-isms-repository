@@ -995,7 +995,7 @@ export function useUpdateTenantUserRole() {
   return useMutation({
     mutationFn: async ({ userId, role }: { userId: string; role: string }) => {
       if (!actor) throw new Error("No actor");
-      return (actor as any).updateTenantUserRole(userId, role);
+      return actor.updateTenantUserRole(userId, role);
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["tenantUsers"] });

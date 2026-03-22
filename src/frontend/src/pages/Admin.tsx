@@ -57,6 +57,7 @@ import {
   useRisks,
   useSetApproval,
   useSetSSOConfig,
+  useUpdateTenantUserRole,
 } from "../hooks/useQueries";
 
 const roleColors: Record<UserRole, string> = {
@@ -369,6 +370,30 @@ export function Admin() {
   const [error, setError] = useState("");
   const [roleMap, setRoleMap] = useState<Record<string, UserRole>>({});
   const [assigningRoleFor, setAssigningRoleFor] = useState<string | null>(null);
+  const [tenantUserRoleMap, setTenantUserRoleMap] = useState<
+    Record<string, string>
+  >({});
+  const [updatingTenantRoleFor, setUpdatingTenantRoleFor] = useState<
+    string | null
+  >(null);
+  const updateTenantUserRole = useUpdateTenantUserRole();
+
+  const handleTenantUserRoleChange = async (
+    userId: string,
+    currentRole: string,
+    newRole: string,
+  ) => {
+    setUpdatingTenantRoleFor(userId);
+    setTenantUserRoleMap((prev) => ({ ...prev, [userId]: newRole }));
+    try {
+      await updateTenantUserRole.mutateAsync({ userId, role: newRole });
+    } catch (err: any) {
+      toast.error(err?.message ?? "Failed to update role");
+      setTenantUserRoleMap((prev) => ({ ...prev, [userId]: currentRole }));
+    } finally {
+      setUpdatingTenantRoleFor(null);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1589,9 +1614,28 @@ export function Admin() {
                             <Badge className="bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 text-[10px]">
                               Approved
                             </Badge>
-                            <Badge className="bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 text-[10px]">
-                              {u.role}
-                            </Badge>
+                            <div className="flex items-center gap-1">
+                              {updatingTenantRoleFor === u.id && (
+                                <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />
+                              )}
+                              <select
+                                value={tenantUserRoleMap[u.id] ?? u.role}
+                                disabled={updatingTenantRoleFor === u.id}
+                                onChange={(e) =>
+                                  handleTenantUserRoleChange(
+                                    u.id,
+                                    tenantUserRoleMap[u.id] ?? u.role,
+                                    e.target.value,
+                                  )
+                                }
+                                className="text-[11px] bg-background border border-border rounded px-1.5 py-0.5 text-foreground cursor-pointer disabled:opacity-50"
+                                data-ocid={`admin.tenant_user_role.select.${u.id}`}
+                              >
+                                <option value="user">User</option>
+                                <option value="admin">Admin</option>
+                                <option value="guest">Guest</option>
+                              </select>
+                            </div>
                           </div>
                         </div>
                       ))}

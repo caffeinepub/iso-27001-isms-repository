@@ -393,6 +393,7 @@ export interface _SERVICE {
     GovernanceItem
   >,
   'updateRisk' : ActorMethod<[UpdateRiskInput], RiskItem>,
+  'updateTenantUserRole' : ActorMethod<[string, string], undefined>,
 }
 export declare const idlService: IDL.ServiceClass;
 export declare const idlInitArgs: IDL.Type[];

@@ -480,6 +480,7 @@ export interface backendInterface {
     updateRiskAsTenantUser(userId: string, input: UpdateRiskInput): Promise<RiskItem>;
     deleteRiskAsTenantUser(userId: string, id: bigint): Promise<void>;
     getTenantUsersForDomain(domain: string): Promise<Array<any>>;
+    updateTenantUserRole(userId: string, role: string): Promise<void>;
 }
 import type { ApprovalStatus as _ApprovalStatus, ComplianceControl as _ComplianceControl, ControlStatus as _ControlStatus, CreateComplianceControlInput as _CreateComplianceControlInput, CreateGovernanceItemInput as _CreateGovernanceItemInput, CreateRiskInput as _CreateRiskInput, GovAttachmentMeta as _GovAttachmentMeta, GovernanceCategory as _GovernanceCategory, GovernanceItem as _GovernanceItem, GovernanceStatus as _GovernanceStatus, GovernanceSummary as _GovernanceSummary, MaturityLevel as _MaturityLevel, MitigationControl as _MitigationControl, RegistrationResult as _RegistrationResult, RiskItem as _RiskItem, RiskLevel as _RiskLevel, RiskStats as _RiskStats, RiskStatus as _RiskStatus, RiskTreatment as _RiskTreatment, Tenant as _Tenant, TenantLoginResult as _TenantLoginResult, TenantOrg as _TenantOrg, TenantUserLoginResponse as _TenantUserLoginResponse, ThreatCategory as _ThreatCategory, UpdateComplianceControlInput as _UpdateComplianceControlInput, UpdateGovernanceItemInput as _UpdateGovernanceItemInput, UpdateRiskInput as _UpdateRiskInput, UserApprovalInfo as _UserApprovalInfo, UserProfile as _UserProfile, UserRole as _UserRole, _CaffeineStorageRefillInformation as __CaffeineStorageRefillInformation, _CaffeineStorageRefillResult as __CaffeineStorageRefillResult } from "./declarations/backend.did.d.ts";
 export class Backend implements backendInterface {
@@ -1384,6 +1385,17 @@ export class Backend implements backendInterface {
             }
         }
         return await (this.actor as any).getTenantUsersForDomain(domain);
+    }
+    async updateTenantUserRole(userId: string, role: string): Promise<void> {
+        if (this.processError) {
+            try {
+                return await (this.actor as any).updateTenantUserRole(userId, role);
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        }
+        return await (this.actor as any).updateTenantUserRole(userId, role);
     }
 }
 function from_candid_ApprovalStatus_n79(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _ApprovalStatus): ApprovalStatus {

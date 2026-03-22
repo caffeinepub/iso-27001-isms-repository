@@ -1,36 +1,40 @@
 # CybXSan GRC Platform
 
 ## Current State
-- Multi-tenant GRC platform with Internet Identity admin auth and email/password tenant user auth
-- Risk register, compliance, governance, document repository, dashboard modules
-- Tenant data isolation: `getRisks()` and `getRisksAsTenantUser(userId)` both filter by tenant on backend
-- `createRiskAsTenantUser` exists but hardcodes `status = #open`, ignoring input status
-- No `updateRiskAsTenantUser` backend method; tenant users' edit calls fall through to II actor path and fail
-- No tenant user management page for tenant organizations to manage their own users
-- Dashboard stats use separate query paths for admin vs tenant users
+The Compliance Standards page shows controls for each framework with a manual status dropdown (Implemented/Partial/Not Implemented/N/A). The compliance score is calculated based on these manually set statuses. Governance items can be mapped to a framework (not to individual controls). There is no connection between specific governance items and specific compliance controls.
 
 ## Requested Changes (Diff)
 
 ### Add
-- `updateRiskAsTenantUser(userId: Text, input: UpdateRiskInput)` backend method: looks up tenant by userId string, verifies risk belongs to that tenant, updates all fields including status
-- `getTenantUsersForDomain(domain: Text)` backend method: returns all tenant users for a given domain (for tenant org admins)
-- `updateTenantUserRole(userId: Text, role: Text)` backend method: allows updating a tenant user's role within their org
-- Tenant User Management page (`/tenant/users`): accessible to tenant users, shows users in the same domain/org, allows adding new users and changing roles
-- Navigation link to User Management for tenant users in sidebar
+- Backend: `setControlGovernanceMapping(controlId: bigint, govItemIds: [bigint])` — stores which governance items are linked to a specific control
+- Backend: `getControlGovernanceMappings()` — returns all control-to-governance-item mappings
+- Backend: `getControlGovernanceMappingsAsTenantUser(userId: string)` — tenant user version
+- Frontend: For each control row, show a "Linked Governance Items" section listing all governance items currently mapped to that control (with their status badge)
+- Frontend: A "Link Governance Items" button/panel per control that opens a popover/dialog to select governance items from the same framework
+- Frontend: Auto-compute control status based on linked governance items:
+  - If 1+ linked governance items exist and ALL are "Active" → Fully Implemented
+  - If some are Active but not all → Partially Implemented
+  - If linked items exist but none are Active → Not Implemented
+  - If no linked items → Not Implemented (compliance score stays 0 for this control)
+- Frontend: Override manual status only when governance items are linked; if no items linked, status remains manually settable
+- Frontend: Compliance score is computed from auto-assigned statuses (not manual overrides when governance-mapped)
 
 ### Modify
-- `createRiskAsTenantUser`: pass `input.status` through instead of hardcoding `#open`
-- Frontend RiskRegister: use `updateRiskAsTenantUser` hook when current user is a tenant user
-- Dashboard: ensure stats are correctly tenant-scoped for tenant users
+- `ComplianceStandards.tsx`: Each control row now shows linked governance items and a "Link" action
+- Compliance score cards recalculate in real-time based on governance-linked status
+- The status select dropdown should show as read-only / derived when governance items are linked
 
 ### Remove
-- Nothing
+- Nothing removed; manual status editing remains available for controls with no governance item links
 
 ## Implementation Plan
-1. Add `updateRiskAsTenantUser` to backend with full field support including status
-2. Fix `createRiskAsTenantUser` to pass status from input
-3. Add `getTenantUsersForDomain` and `updateTenantUserRole` backend methods
-4. Frontend: wire new hooks for tenant user risk update
-5. Frontend: build Tenant User Management page with user list, add user form, role change
-6. Frontend: add navigation link for tenant users
-7. Verify dashboard stats are correctly tenant-scoped
+1. Generate Motoko backend with new `setControlGovernanceMapping` / `getControlGovernanceMappings` / `getControlGovernanceMappingsAsTenantUser` functions
+2. Add `useGetControlGovernanceMappings`, `useSetControlGovernanceMapping` hooks in `useQueries.ts`
+3. Rewrite `FrameworkControls` component to:
+   a. Fetch all governance items for the current framework
+   b. Fetch all control-governance mappings
+   c. For each control, show linked governance items inline
+   d. Show a "Link" button that opens a multi-select dialog
+   e. Auto-derive control status from linked governance items
+4. Recalculate compliance score locally from derived statuses
+5. Support tenant user isolation for mappings

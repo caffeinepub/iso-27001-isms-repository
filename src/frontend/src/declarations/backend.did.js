@@ -465,6 +465,7 @@ export const idlService = IDL.Service({
   'updateRiskAsTenantUser' : IDL.Func([IDL.Text, UpdateRiskInput], [RiskItem], []),
   'deleteRiskAsTenantUser' : IDL.Func([IDL.Text, IDL.Nat], [], []),
   'getTenantUsersForDomain' : IDL.Func([IDL.Text], [IDL.Vec(TenantUser)], ['query']),
+  'updateTenantUserRole' : IDL.Func([IDL.Text, IDL.Text], [], []),
 });
 
 export const idlInitArgs = [];
@@ -935,6 +936,7 @@ export const idlFactory = ({ IDL }) => {
     'updateRiskAsTenantUser' : IDL.Func([IDL.Text, UpdateRiskInput], [RiskItem], []),
     'deleteRiskAsTenantUser' : IDL.Func([IDL.Text, IDL.Nat], [], []),
     'getTenantUsersForDomain' : IDL.Func([IDL.Text], [IDL.Vec(TenantUser)], ['query']),
+    'updateTenantUserRole' : IDL.Func([IDL.Text, IDL.Text], [], []),
   });
 };
 
