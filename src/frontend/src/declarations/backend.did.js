@@ -466,6 +466,9 @@ export const idlService = IDL.Service({
   'deleteRiskAsTenantUser' : IDL.Func([IDL.Text, IDL.Nat], [], []),
   'getTenantUsersForDomain' : IDL.Func([IDL.Text], [IDL.Vec(TenantUser)], ['query']),
   'updateTenantUserRole' : IDL.Func([IDL.Text, IDL.Text], [], []),
+  'getLicenseKeyStatus' : IDL.Func([], [IDL.Bool], ['query']),
+  'setLicenseKey' : IDL.Func([IDL.Text], [IDL.Bool], []),
+  'claimPlatformAdminWithKey' : IDL.Func([IDL.Text], [IDL.Variant({'ok': IDL.Null, 'err': IDL.Text})], []),
 });
 
 export const idlInitArgs = [];
@@ -937,6 +940,9 @@ export const idlFactory = ({ IDL }) => {
     'deleteRiskAsTenantUser' : IDL.Func([IDL.Text, IDL.Nat], [], []),
     'getTenantUsersForDomain' : IDL.Func([IDL.Text], [IDL.Vec(TenantUser)], ['query']),
     'updateTenantUserRole' : IDL.Func([IDL.Text, IDL.Text], [], []),
+    'getLicenseKeyStatus' : IDL.Func([], [IDL.Bool], ['query']),
+    'setLicenseKey' : IDL.Func([IDL.Text], [IDL.Bool], []),
+    'claimPlatformAdminWithKey' : IDL.Func([IDL.Text], [IDL.Variant({'ok': IDL.Null, 'err': IDL.Text})], []),
   });
 };
 

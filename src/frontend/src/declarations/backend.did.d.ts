@@ -13,6 +13,7 @@ import type { Principal } from '@icp-sdk/core/principal';
 export type ApprovalStatus = { 'pending' : null } |
   { 'approved' : null } |
   { 'rejected' : null };
+export type ClaimPlatformAdminResult = { 'ok' : null } | { 'err' : string };
 export interface ComplianceControl {
   'id' : bigint,
   'status' : ControlStatus,
@@ -394,6 +395,14 @@ export interface _SERVICE {
   >,
   'updateRisk' : ActorMethod<[UpdateRiskInput], RiskItem>,
   'updateTenantUserRole' : ActorMethod<[string, string], undefined>,
+  'createRiskAsTenantUser' : ActorMethod<[string, CreateRiskInput], bigint>,
+  'getRisksAsTenantUser' : ActorMethod<[string], Array<RiskItem>>,
+  'updateRiskAsTenantUser' : ActorMethod<[string, UpdateRiskInput], RiskItem>,
+  'deleteRiskAsTenantUser' : ActorMethod<[string, bigint], undefined>,
+  'getTenantUsersForDomain' : ActorMethod<[string], Array<TenantUser>>,
+  'getLicenseKeyStatus' : ActorMethod<[], boolean>,
+  'setLicenseKey' : ActorMethod<[string], boolean>,
+  'claimPlatformAdminWithKey' : ActorMethod<[string], { 'ok' : null } | { 'err' : string }>,
 }
 export declare const idlService: IDL.ServiceClass;
 export declare const idlInitArgs: IDL.Type[];
