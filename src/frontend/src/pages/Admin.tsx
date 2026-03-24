@@ -40,6 +40,7 @@ import { motion } from "motion/react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { ApprovalStatus, UserRole } from "../backend";
+import { useActor } from "../hooks/useActor";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
 import {
   useApproveTenantUser,
@@ -324,6 +325,118 @@ function SSOTab() {
   );
 }
 
+function PlatformSettingsTab() {
+  const { actor } = useActor();
+  const [keyStatus, setKeyStatus] = useState<boolean | null>(null);
+  const [newKey, setNewKey] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!actor) return;
+    const fn = (actor as any).getLicenseKeyStatus;
+    if (typeof fn === "function") {
+      fn.call(actor)
+        .then(setKeyStatus)
+        .catch(() => setKeyStatus(false));
+    }
+  }, [actor]);
+
+  const handleSaveKey = async () => {
+    if (!actor || !newKey.trim()) return;
+    setSaving(true);
+    try {
+      const fn = (actor as any).setLicenseKey;
+      if (typeof fn === "function") {
+        await fn.call(actor, newKey.trim());
+        setKeyStatus(true);
+        setNewKey("");
+        toast.success("License key updated");
+      }
+    } catch {
+      toast.error("Failed to update license key");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Card className="bg-card border-border" data-ocid="admin.platform.card">
+      <CardHeader className="pb-3">
+        <div className="flex items-center gap-2">
+          <Shield className="w-4 h-4 text-primary" />
+          <CardTitle className="text-sm font-semibold font-display">
+            Platform Settings
+          </CardTitle>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Configure platform-level settings including license key management.
+        </p>
+      </CardHeader>
+      <Separator className="bg-border" />
+      <CardContent className="pt-4 space-y-4">
+        <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border">
+          <div>
+            <p className="text-xs font-semibold">License Key Status</p>
+            <p className="text-[11px] text-muted-foreground mt-0.5">
+              Controls whether an activation key is required to claim admin
+              access
+            </p>
+          </div>
+          <Badge
+            className={
+              keyStatus
+                ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
+                : "bg-amber-500/15 text-amber-400 border-amber-500/30"
+            }
+          >
+            {keyStatus === null
+              ? "Checking..."
+              : keyStatus
+                ? "Key Set"
+                : "No Key Set"}
+          </Badge>
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">
+            {keyStatus ? "Update Activation Key" : "Set Activation Key"}
+          </Label>
+          <div className="flex gap-2">
+            <Input
+              data-ocid="admin.platform.license_key.input"
+              type="password"
+              placeholder="Enter new activation key..."
+              value={newKey}
+              onChange={(e) => setNewKey(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleSaveKey()}
+              className="text-sm flex-1"
+            />
+            <Button
+              data-ocid="admin.platform.save_button"
+              size="sm"
+              onClick={handleSaveKey}
+              disabled={saving || !newKey.trim()}
+            >
+              {saving ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                "Save"
+              )}
+            </Button>
+          </div>
+        </div>
+        <div className="rounded-lg bg-muted/30 border border-border p-3">
+          <p className="text-[11px] text-muted-foreground">
+            <strong>Note:</strong> Setting an activation key means new
+            deployments will require this key to claim Platform Admin access.
+            Without a key set, any authenticated Internet Identity user can
+            claim admin on a fresh deployment.
+          </p>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export function Admin() {
   const { identity } = useInternetIdentity();
   const { data: currentRole } = useCallerRole();
@@ -562,7 +675,7 @@ export function Admin() {
       >
         <Tabs defaultValue="users" className="w-full">
           <TabsList
-            className="w-full grid grid-cols-4 bg-muted/30 border border-border mb-5"
+            className="w-full grid grid-cols-5 bg-muted/30 border border-border mb-5"
             data-ocid="admin.tab"
           >
             <TabsTrigger
@@ -601,6 +714,14 @@ export function Admin() {
             >
               <KeyRound className="w-3.5 h-3.5" />
               SSO
+            </TabsTrigger>
+            <TabsTrigger
+              value="platform"
+              data-ocid="admin.platform.tab"
+              className="text-xs gap-1.5 data-[state=active]:bg-primary/20 data-[state=active]:text-primary"
+            >
+              <Settings className="w-3.5 h-3.5" />
+              Platform
             </TabsTrigger>
           </TabsList>
 
@@ -1822,6 +1943,11 @@ export function Admin() {
 
           {/* ── SSO TAB ─────────────────────────────────────────────── */}
           <SSOTab />
+
+          {/* ── PLATFORM SETTINGS TAB ────────────────── */}
+          <TabsContent value="platform" className="space-y-5 mt-0">
+            <PlatformSettingsTab />
+          </TabsContent>
         </Tabs>
       </motion.div>
     </div>

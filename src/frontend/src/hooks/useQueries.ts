@@ -1027,3 +1027,50 @@ export function useUpdateGovernanceItemAsTenantUser() {
     onError: () => toast.error("Failed to update governance item"),
   });
 }
+
+export function useGetControlGovernanceLinks(tenantDomain: string | null) {
+  const { actor, isFetching } = useActor();
+  return useQuery<
+    Array<{
+      tenantDomain: string;
+      controlId: string;
+      governanceItemIds: string[];
+    }>
+  >({
+    queryKey: ["controlGovernanceLinks", tenantDomain],
+    queryFn: async () => {
+      if (!actor || !tenantDomain) return [];
+      return actor.getControlGovernanceLinks(tenantDomain);
+    },
+    enabled: !!actor && !isFetching && !!tenantDomain,
+  });
+}
+
+export function useSetControlGovernanceLink() {
+  const { actor } = useActor();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      tenantDomain,
+      controlId,
+      governanceItemIds,
+    }: {
+      tenantDomain: string;
+      controlId: string;
+      governanceItemIds: string[];
+    }) => {
+      if (!actor) throw new Error("No actor");
+      return actor.setControlGovernanceLink(
+        tenantDomain,
+        controlId,
+        governanceItemIds,
+      );
+    },
+    onSuccess: (_data: any, vars: any) => {
+      qc.invalidateQueries({
+        queryKey: ["controlGovernanceLinks", vars.tenantDomain],
+      });
+    },
+    onError: () => toast.error("Failed to save control mapping"),
+  });
+}

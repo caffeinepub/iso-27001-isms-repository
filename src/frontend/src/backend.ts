@@ -414,6 +414,21 @@ export enum UserRole {
     user = "user",
     guest = "guest"
 }
+
+export interface TenantSettings {
+    domain: string;
+    companyName: string;
+    industry: string;
+    activeFrameworks: string[];
+    riskAppetite: { lowThreshold: number; mediumThreshold: number; highThreshold: number };
+    onboardingDone: boolean;
+}
+export interface ControlGovernanceLink {
+    tenantDomain: string;
+    controlId: string;
+    governanceItemIds: string[];
+}
+
 export interface backendInterface {
     _caffeineStorageBlobIsLive(hash: Uint8Array): Promise<boolean>;
     _caffeineStorageBlobsToDelete(): Promise<Array<Uint8Array>>;
@@ -481,6 +496,17 @@ export interface backendInterface {
     deleteRiskAsTenantUser(userId: string, id: bigint): Promise<void>;
     getTenantUsersForDomain(domain: string): Promise<Array<any>>;
     updateTenantUserRole(userId: string, role: string): Promise<void>;
+    isPlatformSetupDone(): Promise<boolean>;
+    getLicenseKeyStatus(): Promise<boolean>;
+    setLicenseKey(key: string): Promise<boolean>;
+    claimPlatformAdminWithKey(licenseKey: string): Promise<{ok: null} | {err: string}>;
+    getTenantSettings(domain: string): Promise<TenantSettings | null>;
+    saveTenantSettings(settings: TenantSettings): Promise<boolean>;
+    completeTenantOnboarding(userId: string, companyName: string, industry: string, activeFrameworks: string[]): Promise<boolean>;
+    isTenantOnboardingDone(userId: string): Promise<boolean>;
+    setControlGovernanceLink(tenantDomain: string, controlId: string, governanceItemIds: string[]): Promise<boolean>;
+    getControlGovernanceLinks(tenantDomain: string): Promise<Array<ControlGovernanceLink>>;
+    getControlGovernanceLink(tenantDomain: string, controlId: string): Promise<ControlGovernanceLink | null>;
 }
 import type { ApprovalStatus as _ApprovalStatus, ComplianceControl as _ComplianceControl, ControlStatus as _ControlStatus, CreateComplianceControlInput as _CreateComplianceControlInput, CreateGovernanceItemInput as _CreateGovernanceItemInput, CreateRiskInput as _CreateRiskInput, GovAttachmentMeta as _GovAttachmentMeta, GovernanceCategory as _GovernanceCategory, GovernanceItem as _GovernanceItem, GovernanceStatus as _GovernanceStatus, GovernanceSummary as _GovernanceSummary, MaturityLevel as _MaturityLevel, MitigationControl as _MitigationControl, RegistrationResult as _RegistrationResult, RiskItem as _RiskItem, RiskLevel as _RiskLevel, RiskStats as _RiskStats, RiskStatus as _RiskStatus, RiskTreatment as _RiskTreatment, Tenant as _Tenant, TenantLoginResult as _TenantLoginResult, TenantOrg as _TenantOrg, TenantUserLoginResponse as _TenantUserLoginResponse, ThreatCategory as _ThreatCategory, UpdateComplianceControlInput as _UpdateComplianceControlInput, UpdateGovernanceItemInput as _UpdateGovernanceItemInput, UpdateRiskInput as _UpdateRiskInput, UserApprovalInfo as _UserApprovalInfo, UserProfile as _UserProfile, UserRole as _UserRole, _CaffeineStorageRefillInformation as __CaffeineStorageRefillInformation, _CaffeineStorageRefillResult as __CaffeineStorageRefillResult } from "./declarations/backend.did.d.ts";
 export class Backend implements backendInterface {
@@ -1396,6 +1422,55 @@ export class Backend implements backendInterface {
             }
         }
         return await (this.actor as any).updateTenantUserRole(userId, role);
+    }
+
+    async isPlatformSetupDone(): Promise<boolean> {
+        try { return await (this.actor as any).isPlatformSetupDone(); } catch { return false; }
+    }
+    async getLicenseKeyStatus(): Promise<boolean> {
+        try { return await (this.actor as any).getLicenseKeyStatus(); } catch { return false; }
+    }
+    async setLicenseKey(key: string): Promise<boolean> {
+        if (this.processError) {
+            try { return await (this.actor as any).setLicenseKey(key); } catch (e) { this.processError(e); throw new Error("unreachable"); }
+        }
+        return await (this.actor as any).setLicenseKey(key);
+    }
+    async claimPlatformAdminWithKey(licenseKey: string): Promise<{ok: null} | {err: string}> {
+        if (this.processError) {
+            try { return await (this.actor as any).claimPlatformAdminWithKey(licenseKey); } catch (e) { this.processError(e); throw new Error("unreachable"); }
+        }
+        return await (this.actor as any).claimPlatformAdminWithKey(licenseKey);
+    }
+    async getTenantSettings(domain: string): Promise<TenantSettings | null> {
+        try { const r = await (this.actor as any).getTenantSettings(domain); return r ?? null; } catch { return null; }
+    }
+    async saveTenantSettings(settings: TenantSettings): Promise<boolean> {
+        if (this.processError) {
+            try { return await (this.actor as any).saveTenantSettings(settings); } catch (e) { this.processError(e); throw new Error("unreachable"); }
+        }
+        return await (this.actor as any).saveTenantSettings(settings);
+    }
+    async completeTenantOnboarding(userId: string, companyName: string, industry: string, activeFrameworks: string[]): Promise<boolean> {
+        if (this.processError) {
+            try { return await (this.actor as any).completeTenantOnboarding(userId, companyName, industry, activeFrameworks); } catch (e) { this.processError(e); throw new Error("unreachable"); }
+        }
+        return await (this.actor as any).completeTenantOnboarding(userId, companyName, industry, activeFrameworks);
+    }
+    async isTenantOnboardingDone(userId: string): Promise<boolean> {
+        try { return await (this.actor as any).isTenantOnboardingDone(userId); } catch { return true; }
+    }
+    async setControlGovernanceLink(tenantDomain: string, controlId: string, governanceItemIds: string[]): Promise<boolean> {
+        if (this.processError) {
+            try { return await (this.actor as any).setControlGovernanceLink(tenantDomain, controlId, governanceItemIds); } catch (e) { this.processError(e); throw new Error("unreachable"); }
+        }
+        return await (this.actor as any).setControlGovernanceLink(tenantDomain, controlId, governanceItemIds);
+    }
+    async getControlGovernanceLinks(tenantDomain: string): Promise<Array<ControlGovernanceLink>> {
+        try { const r = await (this.actor as any).getControlGovernanceLinks(tenantDomain); return r ?? []; } catch { return []; }
+    }
+    async getControlGovernanceLink(tenantDomain: string, controlId: string): Promise<ControlGovernanceLink | null> {
+        try { const r = await (this.actor as any).getControlGovernanceLink(tenantDomain, controlId); return r ?? null; } catch { return null; }
     }
 }
 function from_candid_ApprovalStatus_n79(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _ApprovalStatus): ApprovalStatus {

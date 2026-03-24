@@ -18,20 +18,21 @@ import { ClaimAdmin } from "./pages/ClaimAdmin";
 import { ComplianceStandards } from "./pages/ComplianceStandards";
 import { Dashboard } from "./pages/Dashboard";
 import { Documents } from "./pages/Documents";
+import { GRCSettings } from "./pages/GRCSettings";
 import { Governance } from "./pages/Governance";
 import { Login } from "./pages/Login";
+import { PlatformSetup } from "./pages/PlatformSetup";
 import { RiskRegister } from "./pages/RiskRegister";
 import { TenantLogin } from "./pages/TenantLogin";
+import { TenantOnboarding } from "./pages/TenantOnboarding";
 import { TenantSignUp } from "./pages/TenantSignUp";
 import { TenantUserManagement } from "./pages/TenantUserManagement";
 import { TrustCenter } from "./pages/TrustCenter";
 // ── Admin token helpers ───────────────────────────────────────────────────
 function getAdminTokenFromUrl(): string | null {
-  // Check query string: ?caffeineAdminToken=...
   const qs = new URLSearchParams(window.location.search);
   const qsToken = qs.get("caffeineAdminToken");
   if (qsToken) return qsToken;
-  // Check hash fragment: #caffeineAdminToken=... or #/?caffeineAdminToken=...
   const hash = window.location.hash;
   if (hash) {
     const hashContent = hash.startsWith("#") ? hash.slice(1) : hash;
@@ -45,10 +46,8 @@ function getAdminTokenFromUrl(): string | null {
 }
 
 function clearAdminTokenFromUrl(): void {
-  // Remove token from query string
   const url = new URL(window.location.href);
   url.searchParams.delete("caffeineAdminToken");
-  // Remove token from hash
   const hash = url.hash;
   if (hash) {
     const hashContent = hash.startsWith("#") ? hash.slice(1) : hash;
@@ -72,11 +71,11 @@ export type Page =
   | "governance"
   | "compliance"
   | "trustCenter"
-  | "tenantUsers";
+  | "tenantUsers"
+  | "grcSettings";
 
 type AuthView = "main" | "tenantLogin" | "tenantSignUp";
 
-// Capture the admin token once at module load time so URL changes don't affect it.
 const INITIAL_ADMIN_TOKEN = getAdminTokenFromUrl();
 
 function LoadingScreen({ message }: { message: string }) {
@@ -103,7 +102,8 @@ function AppShell() {
   const { actor, isFetching: actorLoading } = useActor();
   const queryClient = useQueryClient();
   const { data: isAdmin } = useIsAdmin();
-  const { isLoading: adminAssignedLoading } = useIsAdminAssigned();
+  const { data: isAdminAssigned, isLoading: adminAssignedLoading } =
+    useIsAdminAssigned();
   const { data: isApproved, isLoading: approvalLoading } = useIsApproved();
   const [page, setPage] = useState<Page>("dashboard");
   const [claimStatus, setClaimStatus] = useState<ClaimStatus>("idle");
@@ -111,7 +111,10 @@ function AppShell() {
   const claimAttempted = useRef(false);
   const initDone = useRef(false);
 
-  // Check if a tenant user is logged in via email/password
+  // Tenant onboarding check
+  const [onboardingChecked, setOnboardingChecked] = useState(false);
+  const [needsOnboarding, setNeedsOnboarding] = useState(false);
+
   const [tenantUser, setTenantUser] = useState<object | null>(() => {
     try {
       const stored = localStorage.getItem("tenantUser");
@@ -140,7 +143,34 @@ function AppShell() {
     ]);
   }, [actor, actorLoading]);
 
-  // Admin token claim -- runs ONCE, only when token is present in URL
+  // Check tenant onboarding status once after login
+  useEffect(() => {
+    if (!actor || actorLoading || !isTenantAuthenticated || onboardingChecked)
+      return;
+    const tu = tenantUser as Record<string, string>;
+    const userId = tu?.id;
+    if (!userId) {
+      setOnboardingChecked(true);
+      return;
+    }
+    actor
+      .isTenantOnboardingDone(userId)
+      .then((done: boolean) => {
+        setNeedsOnboarding(!done);
+        setOnboardingChecked(true);
+      })
+      .catch(() => {
+        setOnboardingChecked(true); // If backend doesn't support it, skip
+      });
+  }, [
+    actor,
+    actorLoading,
+    isTenantAuthenticated,
+    tenantUser,
+    onboardingChecked,
+  ]);
+
+  // Admin token claim
   useEffect(() => {
     if (!INITIAL_ADMIN_TOKEN) return;
     if (!actor || actorLoading) return;
@@ -199,8 +229,26 @@ function AppShell() {
     return <LoadingScreen message="Loading GRC Platform..." />;
   }
 
-  // Tenant user is logged in via email/password — show dashboard directly
+  // Tenant user is logged in via email/password
   if (isTenantAuthenticated && !isAuthenticated) {
+    const tu = tenantUser as Record<string, string>;
+
+    // Show onboarding if not checked yet
+    if (!onboardingChecked) {
+      return <LoadingScreen message="Preparing your workspace..." />;
+    }
+
+    // Show onboarding wizard if needed
+    if (needsOnboarding) {
+      return (
+        <TenantOnboarding
+          userId={tu.id}
+          companyName={tu.companyName ?? tu.domain ?? ""}
+          onComplete={() => setNeedsOnboarding(false)}
+        />
+      );
+    }
+
     return (
       <TenantUserProvider tenantUser={tenantUser as any}>
         <Layout
@@ -209,6 +257,8 @@ function AppShell() {
           onTenantLogout={() => {
             localStorage.removeItem("tenantUser");
             setTenantUser(null);
+            setOnboardingChecked(false);
+            setNeedsOnboarding(false);
             setAuthView("main");
           }}
           tenantUser={tenantUser as Record<string, string>}
@@ -220,6 +270,10 @@ function AppShell() {
           {page === "governance" && <Governance />}
           {page === "trustCenter" && <TrustCenter />}
           {page === "tenantUsers" && <TenantUserManagement />}
+          {page === "grcSettings" && tu.role === "admin" && <GRCSettings />}
+          {page === "grcSettings" && tu.role !== "admin" && (
+            <Dashboard onNavigate={setPage} />
+          )}
         </Layout>
       </TenantUserProvider>
     );
@@ -233,6 +287,7 @@ function AppShell() {
           onNavigateBack={() => setAuthView("main")}
           onLoginSuccess={(user) => {
             setTenantUser(user);
+            setOnboardingChecked(false);
             setAuthView("main");
           }}
         />
@@ -283,6 +338,20 @@ function AppShell() {
 
   if (adminAssignedLoading) {
     return <LoadingScreen message="Verifying platform status..." />;
+  }
+
+  // Show Platform Setup wizard when no admin is assigned and user is authenticated
+  if (isAdminAssigned === false && isAuthenticated) {
+    return (
+      <PlatformSetup
+        onSetupComplete={() => {
+          queryClient.invalidateQueries({ queryKey: ["isAdmin"] });
+          queryClient.invalidateQueries({ queryKey: ["isAdminAssigned"] });
+          queryClient.refetchQueries({ queryKey: ["isAdmin"] });
+          queryClient.refetchQueries({ queryKey: ["isAdminAssigned"] });
+        }}
+      />
+    );
   }
 
   if (!isAdmin) {

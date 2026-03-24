@@ -21,19 +21,22 @@ import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { GitMerge, Loader2, ShieldCheck } from "lucide-react";
 import { motion } from "motion/react";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ControlStatus, GovernanceStatus } from "../backend";
 import type { GovernanceItem } from "../backend";
 import { useTenantUser } from "../contexts/TenantUserContext";
+import { useActor } from "../hooks/useActor";
 import {
   useComplianceControls,
   useComplianceControlsAsTenantUser,
   useComplianceFrameworks,
   useComplianceScores,
+  useGetControlGovernanceLinks,
   useGetGovernanceFrameworkMappings,
   useGovernanceItems,
   useGovernanceItemsAsTenantUser,
   useInitializeGRCData,
+  useSetControlGovernanceLink,
   useUpdateComplianceControl,
 } from "../hooks/useQueries";
 
@@ -312,29 +315,101 @@ function FrameworkControls({
   const isLoading = tenantUserId ? loadingTU : loadingII;
   const updateControl = useUpdateComplianceControl();
 
+  // Load mapping from backend (fall back to localStorage for compat)
+  const { data: backendLinks } = useGetControlGovernanceLinks(domainKey);
+  const setLinkMutation = useSetControlGovernanceLink();
+
   const [mapping, setMapping] = useState<CtrlGovMap>(() =>
     loadMapping(domainKey),
   );
+
+  // Sync backend links into local mapping state
+  useEffect(() => {
+    if (!backendLinks || backendLinks.length === 0) return;
+    const newMap: CtrlGovMap = {};
+    for (const link of backendLinks) {
+      newMap[link.controlId] = link.governanceItemIds;
+    }
+    setMapping(newMap);
+  }, [backendLinks]);
+
   const [linkDialogControl, setLinkDialogControl] = useState<{
     id: string;
     label: string;
   } | null>(null);
 
+  // Sync derived control statuses to backend whenever governance items change
+  const prevGovItemsRef = useRef<GovernanceItem[]>([]);
+  useEffect(() => {
+    const prev = prevGovItemsRef.current;
+    prevGovItemsRef.current = govItems;
+    if (!controls || controls.length === 0 || govItems.length === 0) return;
+    if (
+      prev.length === govItems.length &&
+      prev.every(
+        (g, i) => g.status === govItems[i].status && g.id === govItems[i].id,
+      )
+    )
+      return;
+    for (const ctrl of controls) {
+      const ctrlIdStr = ctrl.id.toString();
+      if (!mapping[ctrlIdStr] || mapping[ctrlIdStr].length === 0) continue;
+      const { status: derivedStatus, derived } = deriveControlStatus(
+        ctrlIdStr,
+        mapping,
+        govItems,
+        ctrl.status,
+      );
+      if (derived) {
+        updateControl.mutate({ id: ctrl.id, status: derivedStatus });
+      }
+    }
+  }, [govItems, controls, mapping, updateControl]);
+
   const handleSaveLink = useCallback(
     (controlId: string, ids: string[]) => {
-      setMapping((prev) => {
-        const next = { ...prev };
+      const newMapping = (() => {
+        const next = { ...mapping };
         if (ids.length === 0) {
           delete next[controlId];
         } else {
           next[controlId] = ids;
         }
+        // Also save to localStorage as fallback
         saveMapping(domainKey, next);
         return next;
+      })();
+      setMapping(newMapping);
+
+      // Persist to backend
+      setLinkMutation.mutate({
+        tenantDomain: domainKey,
+        controlId,
+        governanceItemIds: ids,
       });
       onMappingChange();
+
+      // Persist derived status to backend so Dashboard & Trust Center reflect it
+      const ctrl = controls?.find((c) => c.id.toString() === controlId);
+      if (ctrl) {
+        const { status: derivedStatus } = deriveControlStatus(
+          controlId,
+          newMapping,
+          govItems,
+          ctrl.status,
+        );
+        updateControl.mutate({ id: ctrl.id, status: derivedStatus });
+      }
     },
-    [domainKey, onMappingChange],
+    [
+      domainKey,
+      onMappingChange,
+      controls,
+      govItems,
+      mapping,
+      updateControl,
+      setLinkMutation,
+    ],
   );
 
   if (isLoading) {
@@ -512,6 +587,7 @@ function useLocalScore(
   return useMemo(() => {
     void mappingVersion; // trigger recompute on mapping change
     if (!controls || controls.length === 0) return null;
+    // mapping is passed via props or computed from backendLinks already
     const mapping = loadMapping(domainKey);
     let implemented = 0;
     for (const ctrl of controls) {
