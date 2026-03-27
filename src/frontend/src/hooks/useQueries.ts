@@ -20,6 +20,7 @@ import {
   type UserApprovalInfo,
   UserRole,
 } from "../backend";
+import { useTenantUser } from "../contexts/TenantUserContext";
 import type {
   GovAttachmentMeta,
   GovFrameworkMapping,
@@ -658,11 +659,20 @@ export function useDeleteUploadedDocument() {
 
 export function useGetGovernanceAttachments() {
   const { actor, isFetching } = useActor();
+  const { tenantUser } = useTenantUser();
   return useQuery<Map<string, GovAttachmentMeta>>({
-    queryKey: ["govAttachments"],
+    queryKey: ["govAttachments", tenantUser?.id],
     queryFn: async () => {
       if (!actor) return new Map();
       const a = actor as any;
+      if (tenantUser) {
+        if (typeof a.getGovernanceAttachmentsAsTenantUser === "function") {
+          const pairs: Array<[bigint, GovAttachmentMeta]> =
+            await a.getGovernanceAttachmentsAsTenantUser(tenantUser.id);
+          return new Map(pairs.map(([id, meta]) => [id.toString(), meta]));
+        }
+        return new Map();
+      }
       if (typeof a.getGovernanceAttachments !== "function") return new Map();
       const pairs: Array<[bigint, GovAttachmentMeta]> =
         await a.getGovernanceAttachments();
@@ -724,11 +734,22 @@ export function useDeleteGovernanceAttachment() {
 
 export function useGetGovernanceFrameworkMappings() {
   const { actor, isFetching } = useActor();
+  const { tenantUser } = useTenantUser();
   return useQuery<Map<string, GovFrameworkMapping>>({
-    queryKey: ["govFrameworkMappings"],
+    queryKey: ["govFrameworkMappings", tenantUser?.id],
     queryFn: async () => {
       if (!actor) return new Map();
       const a = actor as any;
+      if (tenantUser) {
+        if (
+          typeof a.getGovernanceFrameworkMappingsAsTenantUser === "function"
+        ) {
+          const pairs: Array<[bigint, GovFrameworkMapping]> =
+            await a.getGovernanceFrameworkMappingsAsTenantUser(tenantUser.id);
+          return new Map(pairs.map(([id, fw]) => [id.toString(), fw]));
+        }
+        return new Map();
+      }
       if (typeof a.getGovernanceFrameworkMappings !== "function")
         return new Map();
       const pairs: Array<[bigint, GovFrameworkMapping]> =

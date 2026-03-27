@@ -113,6 +113,13 @@ export function TenantOnboarding({
         >
           <WordMark size="lg" />
           <p className="text-xs text-muted-foreground">Organization Setup</p>
+          <button
+            type="button"
+            onClick={onComplete}
+            className="text-[11px] text-muted-foreground/60 hover:text-muted-foreground transition-colors mt-1"
+          >
+            Skip for now →
+          </button>
         </motion.div>
 
         {/* Progress */}

@@ -116,9 +116,21 @@ export function GRCSettings() {
     if (!actor) return;
     setSaving(true);
     try {
-      const fn = (actor as any).saveTenantSettings;
-      if (typeof fn === "function") {
-        await fn.call(actor, { ...settings, domain });
+      if (tenantUser) {
+        // Tenant user: use domain-verified save
+        const fn = (actor as any).saveTenantSettingsAsTenantUser;
+        if (typeof fn === "function") {
+          await fn.call(actor, tenantUser.id, { ...settings, domain });
+        }
+      } else {
+        // Platform admin: use admin override
+        const fn = (actor as any).saveTenantSettingsByAdmin;
+        const fallback = (actor as any).saveTenantSettings;
+        if (typeof fn === "function") {
+          await fn.call(actor, { ...settings, domain });
+        } else if (typeof fallback === "function") {
+          await fallback.call(actor, { ...settings, domain });
+        }
       }
       toast.success("GRC settings saved successfully");
     } catch (e: unknown) {

@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2, LogOut, Mail, ShieldCheck } from "lucide-react";
+import { CheckCircle2, Key, LogOut, ShieldCheck } from "lucide-react";
 import { motion } from "motion/react";
 import { useState } from "react";
 import { WordMark } from "../components/WordMark";
@@ -14,29 +14,23 @@ export function ClaimAdmin() {
   const { clear } = useInternetIdentity();
   const { actor } = useActor();
   const queryClient = useQueryClient();
-  const [email, setEmail] = useState("");
+  const [activationKey, setActivationKey] = useState("");
   const [claimState, setClaimState] = useState<ClaimState>("idle");
   const [errorMsg, setErrorMsg] = useState("");
 
   async function handleClaim() {
-    if (!email.trim() || !actor) return;
+    if (!activationKey.trim() || !actor) return;
     setClaimState("loading");
     setErrorMsg("");
     try {
-      await (
-        actor as unknown as Record<
-          string,
-          (profile: {
-            name: string;
-            email: string;
-            department: string;
-          }) => Promise<void>
-        >
-      ).saveCallerUserProfile({
-        name: "Administrator",
-        email: email.trim(),
-        department: "IT Security",
-      });
+      const result = await (actor as any).claimPlatformAdminWithKey(
+        activationKey.trim(),
+      );
+      if (result && "err" in result) {
+        setErrorMsg(result.err as string);
+        setClaimState("error");
+        return;
+      }
       // Invalidate all role queries so the app re-checks admin status
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["isAdmin"] }),
@@ -52,16 +46,14 @@ export function ClaimAdmin() {
       setClaimState("success");
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
-      if (
-        msg.includes("email") ||
-        msg.includes("match") ||
-        msg.includes("admin")
-      ) {
+      if (msg.includes("already assigned")) {
         setErrorMsg(
-          "Email not recognized as admin. Please check and try again.",
+          "Platform admin already assigned. Contact your system administrator.",
         );
+      } else if (msg.includes("Invalid") || msg.includes("license")) {
+        setErrorMsg("Invalid activation key. Please check and try again.");
       } else {
-        setErrorMsg("Claim failed. Please try again.");
+        setErrorMsg("Activation failed. Please try again.");
       }
       setClaimState("error");
     }
@@ -91,10 +83,10 @@ export function ClaimAdmin() {
             <WordMark size="lg" />
           </div>
           <h2 className="text-base font-semibold text-slate-300 mt-1">
-            Admin Access
+            Platform Admin Activation
           </h2>
           <p className="text-sm text-slate-400 mt-0.5">
-            Verify your identity to activate administrator privileges
+            Enter your activation key to claim platform administrator access
           </p>
         </motion.div>
 
@@ -111,7 +103,7 @@ export function ClaimAdmin() {
                 <CheckCircle2 className="w-7 h-7 text-green-400" />
               </div>
               <p className="text-sm font-semibold text-slate-200 text-center">
-                Admin access granted!
+                Platform Admin access granted!
               </p>
               <p className="text-xs text-slate-400 text-center">
                 Loading your administrator dashboard...
@@ -126,34 +118,35 @@ export function ClaimAdmin() {
                 </div>
                 <div>
                   <p className="text-sm font-semibold text-slate-200 leading-snug">
-                    Enter your registered admin email to activate administrator
+                    Enter your platform activation key to claim administrator
                     access.
                   </p>
                   <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
-                    This platform recognizes the designated administrator by
-                    their registered email address.
+                    The activation key is provided by your platform provider.
+                    This can only be claimed once -- the first user to enter the
+                    correct key becomes the Platform Admin.
                   </p>
                 </div>
               </div>
 
               <div className="login-divider" />
 
-              {/* Email form */}
+              {/* Activation key form */}
               <div className="space-y-3">
                 <label
-                  htmlFor="admin-email"
+                  htmlFor="activation-key"
                   className="text-xs font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-2"
                 >
-                  <Mail className="w-3.5 h-3.5 text-amber-400" />
-                  Admin Email Address
+                  <Key className="w-3.5 h-3.5 text-amber-400" />
+                  Activation Key
                 </label>
                 <Input
-                  id="admin-email"
-                  type="email"
-                  placeholder="your@email.com"
-                  value={email}
+                  id="activation-key"
+                  type="text"
+                  placeholder="Enter your activation key"
+                  value={activationKey}
                   onChange={(e) => {
-                    setEmail(e.target.value);
+                    setActivationKey(e.target.value);
                     setClaimState("idle");
                     setErrorMsg("");
                   }}
@@ -163,7 +156,7 @@ export function ClaimAdmin() {
                 {errorMsg && <p className="text-xs text-red-400">{errorMsg}</p>}
                 <Button
                   onClick={handleClaim}
-                  disabled={claimState === "loading" || !email.trim()}
+                  disabled={claimState === "loading" || !activationKey.trim()}
                   className="w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-white font-semibold"
                 >
                   {claimState === "loading"

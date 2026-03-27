@@ -90,8 +90,8 @@ actor {
   stable var DESIGNATED_ADMIN_EMAIL : Text = "";
 
   // Platform license key for first-run admin claim
-  var platformLicenseKey : Text = "";
-  var platformSetupDone : Bool = false;
+  stable var platformLicenseKey : Text = "";
+  stable var platformSetupDone : Bool = false;
 
   public query func isPlatformSetupDone() : async Bool {
     platformSetupDone;
@@ -420,24 +420,24 @@ actor {
     domain : Text;
   };
 
-  var nextTenantId = 1;
+  stable var nextTenantId : Nat = 1;
   let tenants = Map.empty<Nat, Tenant>();
   let userTenantMap = Map.empty<Principal, Nat>();
 
   let documents = Map.empty<Nat, Document>();
-  var nextDocumentId = 1;
+  stable var nextDocumentId : Nat = 1;
 
   let risks = Map.empty<Nat, RiskItem>();
-  var nextRiskId = 1;
+  stable var nextRiskId : Nat = 1;
 
   let governanceItems = Map.empty<Nat, GovernanceItem>();
-  var nextGovernanceId = 1;
+  stable var nextGovernanceId : Nat = 1;
 
   let frameworks = Map.empty<Nat, ComplianceFramework>();
-  var nextFrameworkId = 1;
+  stable var nextFrameworkId : Nat = 1;
 
   let controls = Map.empty<Nat, ComplianceControl>();
-  var nextControlId = 1;
+  stable var nextControlId : Nat = 1;
 
   // Tenant association maps (separate to avoid stable-type migration issues)
   let govTenantMap = Map.empty<Nat, Nat>();
@@ -453,6 +453,19 @@ actor {
     if (score <= 6) { #low } else if (score <= 12) { #medium } else if (score <= 19) {
       #high;
     } else { #critical };
+  };
+
+  // Per-tenant risk level determination using customized thresholds from GRC Settings
+  func determineRiskLevelForDomain(score : Nat, domain : Text) : RiskLevel {
+    switch (tenantSettingsStore.get(domain)) {
+      case (?settings) {
+        if (score <= settings.riskAppetite.lowThreshold) { #low }
+        else if (score <= settings.riskAppetite.mediumThreshold) { #medium }
+        else if (score <= settings.riskAppetite.highThreshold) { #high }
+        else { #critical }
+      };
+      case (null) { determineRiskLevel(score) }; // fallback to platform defaults
+    }
   };
 
   func getMaturityLevelValue(level : MaturityLevel) : Nat {
@@ -1688,8 +1701,27 @@ actor {
   let tenantUsers = Map.empty<Text, TenantUser>();
   let tenantUsersByEmail = Map.empty<Text, TenantUser>();
 
-  var nextTenantOrgId = 1;
-  var nextTenantUserId = 1;
+  // ── Session Token System ──────────────────────────────────────────────────
+  // Provides real authentication for tenant-user API calls.
+  // Login returns a session token as the 'id' field; all tenant APIs accept this token.
+  let sessionTokens = Map.empty<Text, Text>(); // token -> actual userId
+  stable var sessionCounter : Nat = 0;
+
+  func generateSessionToken() : Text {
+    sessionCounter += 1;
+    "st_" # sessionCounter.toText() # "_" # Time.now().toText()
+  };
+
+  // Resolves a session token to a TenantUser. Falls back to direct userId for backward compat.
+  func resolveUserFromToken(tokenOrId : Text) : ?TenantUser {
+    switch (sessionTokens.get(tokenOrId)) {
+      case (?userId) { tenantUsers.get(userId) };
+      case (null) { tenantUsers.get(tokenOrId) };
+    }
+  };
+
+  stable var nextTenantOrgId : Nat = 1;
+  stable var nextTenantUserId : Nat = 1;
 
   // Public registration endpoint - no authorization required
   public shared ({ caller }) func registerTenantUser(input : UserRegistrationInput) : async RegistrationResult {
@@ -1753,8 +1785,10 @@ actor {
         } else if (not user.approved) {
           #notApproved;
         } else {
+          let token = generateSessionToken();
+          sessionTokens.add(token, user.id);
           #ok({
-            id = user.id;
+            id = token; // Session token - used for all subsequent API calls
             fullName = user.fullName;
             email = user.email;
             companyName = user.companyName;
@@ -1790,11 +1824,12 @@ actor {
     if (not (AccessControl.isAdmin(accessControlState, caller))) {
       Runtime.trap("Unauthorized: Only admins can update user roles");
     };
-    switch (tenantUsers.get(userId)) {
+    switch (resolveUserFromToken(userId)) {
       case (null) { Runtime.trap("User not found") };
       case (?user) {
         let updatedUser = { user with role = role };
         tenantUsers.add(userId, updatedUser);
+        tenantUsersByEmail.add(updatedUser.email, updatedUser); // Keep maps in sync
       };
     };
   };
@@ -1805,7 +1840,7 @@ actor {
       Runtime.trap("Unauthorized: Only admins can approve tenant users");
     };
     
-    switch (tenantUsers.get(userId)) {
+    switch (resolveUserFromToken(userId)) {
       case (null) { Runtime.trap("User not found") };
       case (?user) {
         let updatedUser = { user with approved = true };
@@ -1827,7 +1862,7 @@ actor {
     uploadedAt : Int;
   };
 
-  var uploadedDocCounter : Nat = 0;
+  stable var uploadedDocCounter : Nat = 0;
   let uploadedDocuments = Map.empty<Nat, UploadedDocumentMeta>();
 
   public shared ({ caller }) func addUploadedDocument(title : Text, clauseNumber : Text, fileName : Text, fileSize : Nat, blobUrl : Text) : async Nat {
@@ -1938,7 +1973,7 @@ actor {
   // ── Tenant Org Nat ID mapping (for email/password tenant users) ───────────
   // Maps domain -> Nat tenant ID so tenant-user risks/gov/compliance use same tenantId field
   let tenantOrgNatIdMap = Map.empty<Text, Nat>();
-  var nextTenantOrgNatId = 1000; // Start at 1000 to avoid collision with admin-created tenants
+  stable var nextTenantOrgNatId : Nat = 1000; // Start at 1000 to avoid collision with admin-created tenants
 
   func getTenantNatIdForDomain(domain : Text) : Nat {
     switch (tenantOrgNatIdMap.get(domain)) {
@@ -1962,7 +1997,7 @@ actor {
   // ── Tenant-User APIs (authenticated by userId, no II required) ────────────
 
   public query ({ caller }) func getRisksAsTenantUser(userId : Text) : async [RiskItem] {
-    switch (tenantUsers.get(userId)) {
+    switch (resolveUserFromToken(userId)) {
       case (null) { Runtime.trap("User not found") };
       case (?user) {
         if (not user.approved) { Runtime.trap("User not approved") };
@@ -1974,7 +2009,7 @@ actor {
   };
 
   public shared ({ caller }) func createRiskAsTenantUser(userId : Text, input : CreateRiskInput) : async Nat {
-    switch (tenantUsers.get(userId)) {
+    switch (resolveUserFromToken(userId)) {
       case (null) { Runtime.trap("User not found") };
       case (?user) {
         if (not user.approved) { Runtime.trap("User not approved") };
@@ -1982,7 +2017,7 @@ actor {
         let id = nextRiskId;
         let inherentRiskScore = input.likelihood * input.impact;
         let residualRiskScore = calculateResidualRiskScore(inherentRiskScore, input.mitigationControls);
-        let riskLevel = determineRiskLevel(residualRiskScore);
+        let riskLevel = determineRiskLevelForDomain(residualRiskScore, user.domain);
         let risk : RiskItem = {
           id;
           tenantId = natId;
@@ -2016,7 +2051,7 @@ actor {
   };
 
   public shared ({ caller }) func deleteRiskAsTenantUser(userId : Text, riskId : Nat) : async () {
-    switch (tenantUsers.get(userId)) {
+    switch (resolveUserFromToken(userId)) {
       case (null) { Runtime.trap("User not found") };
       case (?user) {
         if (not user.approved) { Runtime.trap("User not approved") };
@@ -2033,7 +2068,7 @@ actor {
   };
 
   public shared ({ caller }) func updateRiskAsTenantUser(userId : Text, input : UpdateRiskInput) : async RiskItem {
-    switch (tenantUsers.get(userId)) {
+    switch (resolveUserFromToken(userId)) {
       case (null) { Runtime.trap("User not found") };
       case (?user) {
         if (not user.approved) { Runtime.trap("User not approved") };
@@ -2047,7 +2082,7 @@ actor {
             let inherentRiskScore = likelihood * impact;
             let mitigationControls = switch (input.mitigationControls) { case (null) { existing.mitigationControls }; case (?val) { val } };
             let residualRiskScore = calculateResidualRiskScore(inherentRiskScore, mitigationControls);
-            let riskLevel = determineRiskLevel(residualRiskScore);
+            let riskLevel = determineRiskLevelForDomain(residualRiskScore, user.domain);
             let updated : RiskItem = {
               existing with
               title = switch (input.title) { case (null) { existing.title }; case (?val) { val } };
@@ -2081,7 +2116,7 @@ actor {
 
 
   public query ({ caller }) func getGovernanceItemsAsTenantUser(userId : Text) : async [GovernanceItem] {
-    switch (tenantUsers.get(userId)) {
+    switch (resolveUserFromToken(userId)) {
       case (null) { Runtime.trap("User not found") };
       case (?user) {
         if (not user.approved) { Runtime.trap("User not approved") };
@@ -2090,7 +2125,7 @@ actor {
         governanceItems.values().toArray().filter(func(item) {
           switch (govTenantMap.get(item.id)) {
             case (?tid) { tid == natId };
-            case (null) { false }; // seed data not shown to tenant users
+            case (null) { true }; // Global seeded controls visible to all tenants
           };
         });
       };
@@ -2098,7 +2133,7 @@ actor {
   };
 
   public shared ({ caller }) func createGovernanceItemAsTenantUser(userId : Text, input : CreateGovernanceItemInput) : async Nat {
-    switch (tenantUsers.get(userId)) {
+    switch (resolveUserFromToken(userId)) {
       case (null) { Runtime.trap("User not found") };
       case (?user) {
         if (not user.approved) { Runtime.trap("User not approved") };
@@ -2126,7 +2161,7 @@ actor {
 
 
   public shared ({ caller }) func updateGovernanceItemAsTenantUser(userId : Text, input : UpdateGovernanceItemInput) : async GovernanceItem {
-    switch (tenantUsers.get(userId)) {
+    switch (resolveUserFromToken(userId)) {
       case (null) { Runtime.trap("User not found") };
       case (?user) {
         if (not user.approved) { Runtime.trap("User not approved") };
@@ -2153,7 +2188,7 @@ actor {
     };
   };
   public query ({ caller }) func getComplianceControlsAsTenantUser(userId : Text, frameworkId : Nat) : async [ComplianceControl] {
-    switch (tenantUsers.get(userId)) {
+    switch (resolveUserFromToken(userId)) {
       case (null) { Runtime.trap("User not found") };
       case (?user) {
         if (not user.approved) { Runtime.trap("User not approved") };
@@ -2163,7 +2198,7 @@ actor {
           if (c.frameworkId != frameworkId) { return false };
           switch (ctrlTenantMap.get(c.id)) {
             case (?tid) { tid == natId };
-            case (null) { false }; // seed data not shown to tenant users
+            case (null) { true }; // Global seeded controls visible to all tenants
           };
         });
       };
@@ -2171,7 +2206,7 @@ actor {
   };
 
   public shared ({ caller }) func createComplianceControlAsTenantUser(userId : Text, input : CreateComplianceControlInput) : async Nat {
-    switch (tenantUsers.get(userId)) {
+    switch (resolveUserFromToken(userId)) {
       case (null) { Runtime.trap("User not found") };
       case (?user) {
         if (not user.approved) { Runtime.trap("User not approved") };
@@ -2245,6 +2280,32 @@ actor {
     tenantUsers.add(userId, tenantUser);
     tenantUsersByEmail.add(input.email, tenantUser);
     nextTenantUserId += 1;
+    // Mark admin-created users as onboarding done (no wizard needed)
+    switch (tenantSettingsStore.get(input.domain)) {
+      case (null) {
+        let defaultSettings : TenantSettings = {
+          domain = input.domain;
+          companyName = input.companyName;
+          industry = "Technology";
+          activeFrameworks = ["iso27001"];
+          riskAppetite = { lowThreshold = 3; mediumThreshold = 6; highThreshold = 9 };
+          onboardingDone = true;
+        };
+        tenantSettingsStore.add(input.domain, defaultSettings);
+      };
+      case (?existing) {
+        // Already has settings, just mark onboarding done
+        let updated : TenantSettings = {
+          domain = existing.domain;
+          companyName = existing.companyName;
+          industry = existing.industry;
+          activeFrameworks = existing.activeFrameworks;
+          riskAppetite = existing.riskAppetite;
+          onboardingDone = true;
+        };
+        tenantSettingsStore.add(input.domain, updated);
+      };
+    };
     #ok;
   };
 
@@ -2281,12 +2342,35 @@ actor {
     true;
   };
 
+  // Admin override - no domain check
+  public shared ({ caller }) func saveTenantSettingsByAdmin(settings : TenantSettings) : async Bool {
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only admins can use admin settings override");
+    };
+    tenantSettingsStore.add(settings.domain, settings);
+    true;
+  };
+
+  // Tenant-user scoped settings save (verifies sessionToken domain matches settings domain)
+  public shared func saveTenantSettingsAsTenantUser(sessionToken : Text, settings : TenantSettings) : async Bool {
+    switch (resolveUserFromToken(sessionToken)) {
+      case (null) { Runtime.trap("Invalid session token") };
+      case (?user) {
+        if (user.domain != settings.domain) {
+          Runtime.trap("Unauthorized: Cannot modify settings for a different domain");
+        };
+        tenantSettingsStore.add(settings.domain, settings);
+        true;
+      };
+    };
+  };
+
   // ============================================================
   // TENANT ONBOARDING
   // ============================================================
 
   public shared func completeTenantOnboarding(userId : Text, companyName : Text, industry : Text, activeFrameworks : [Text]) : async Bool {
-    switch (tenantUsers.get(userId)) {
+    switch (resolveUserFromToken(userId)) {
       case (null) { return false };
       case (?user) {
         let existing = switch (tenantSettingsStore.get(user.domain)) {
@@ -2317,7 +2401,7 @@ actor {
   };
 
   public query func isTenantOnboardingDone(userId : Text) : async Bool {
-    switch (tenantUsers.get(userId)) {
+    switch (resolveUserFromToken(userId)) {
       case (null) { false };
       case (?user) {
         switch (tenantSettingsStore.get(user.domain)) {
@@ -2354,6 +2438,136 @@ actor {
   public query func getControlGovernanceLink(tenantDomain : Text, controlId : Text) : async ?ControlGovernanceLink {
     let key = tenantDomain # ":" # controlId;
     controlGovernanceLinks.get(key);
+  };
+
+  // ── Tenant-scoped governance attachment queries ───────────────────────────
+
+  public query func getGovernanceAttachmentsAsTenantUser(sessionToken : Text) : async [(Nat, GovAttachmentMeta)] {
+    switch (resolveUserFromToken(sessionToken)) {
+      case (null) { Runtime.trap("Invalid session") };
+      case (?user) {
+        let natId = getTenantNatIdForDomain(user.domain);
+        govAttachments.entries().toArray().filter(func((itemId, _)) {
+          switch (govTenantMap.get(itemId)) {
+            case (?tid) { tid == natId };
+            case (null) { false };
+          }
+        })
+      };
+    }
+  };
+
+  public query func getGovernanceFrameworkMappingsAsTenantUser(sessionToken : Text) : async [(Nat, GovFrameworkMapping)] {
+    switch (resolveUserFromToken(sessionToken)) {
+      case (null) { Runtime.trap("Invalid session") };
+      case (?user) {
+        let natId = getTenantNatIdForDomain(user.domain);
+        govFrameworkMappings.entries().toArray().filter(func((itemId, _)) {
+          switch (govTenantMap.get(itemId)) {
+            case (?tid) { tid == natId };
+            case (null) { false };
+          }
+        })
+      };
+    }
+  };
+
+  // ── Stable backing arrays for all Maps (data persistence across upgrades) ─
+  stable var stableUserProfiles : [(Principal, UserProfile)] = [];
+  stable var stableTenants : [(Nat, Tenant)] = [];
+  stable var stableUserTenantMap : [(Principal, Nat)] = [];
+  stable var stableDocuments : [(Nat, Document)] = [];
+  stable var stableRisks : [(Nat, RiskItem)] = [];
+  stable var stableGovernanceItems : [(Nat, GovernanceItem)] = [];
+  stable var stableFrameworks : [(Nat, ComplianceFramework)] = [];
+  stable var stableControls : [(Nat, ComplianceControl)] = [];
+  stable var stableGovTenantMap : [(Nat, Nat)] = [];
+  stable var stableCtrlTenantMap : [(Nat, Nat)] = [];
+  stable var stableDocTenantMap : [(Nat, Nat)] = [];
+  stable var stableTenantOrgs : [(Text, TenantOrg)] = [];
+  stable var stableTenantUsers : [(Text, TenantUser)] = [];
+  stable var stableTenantUsersByEmail : [(Text, TenantUser)] = [];
+  stable var stableSessionTokens : [(Text, Text)] = [];
+  stable var stableUploadedDocuments : [(Nat, UploadedDocumentMeta)] = [];
+  stable var stableGovAttachments : [(Nat, GovAttachmentMeta)] = [];
+  stable var stableGovFrameworkMappings : [(Nat, GovFrameworkMapping)] = [];
+  stable var stableTenantOrgNatIdMap : [(Text, Nat)] = [];
+  stable var stableTenantSettingsStore : [(Text, TenantSettings)] = [];
+  stable var stableControlGovernanceLinks : [(Text, ControlGovernanceLink)] = [];
+  stable var stableSSOConfig : ?SSOConfig = null;
+
+  system func preupgrade() {
+    stableUserProfiles := userProfiles.entries().toArray();
+    stableTenants := tenants.entries().toArray();
+    stableUserTenantMap := userTenantMap.entries().toArray();
+    stableDocuments := documents.entries().toArray();
+    stableRisks := risks.entries().toArray();
+    stableGovernanceItems := governanceItems.entries().toArray();
+    stableFrameworks := frameworks.entries().toArray();
+    stableControls := controls.entries().toArray();
+    stableGovTenantMap := govTenantMap.entries().toArray();
+    stableCtrlTenantMap := ctrlTenantMap.entries().toArray();
+    stableDocTenantMap := docTenantMap.entries().toArray();
+    stableTenantOrgs := tenantOrgs.entries().toArray();
+    stableTenantUsers := tenantUsers.entries().toArray();
+    stableTenantUsersByEmail := tenantUsersByEmail.entries().toArray();
+    stableSessionTokens := sessionTokens.entries().toArray();
+    stableUploadedDocuments := uploadedDocuments.entries().toArray();
+    stableGovAttachments := govAttachments.entries().toArray();
+    stableGovFrameworkMappings := govFrameworkMappings.entries().toArray();
+    stableTenantOrgNatIdMap := tenantOrgNatIdMap.entries().toArray();
+    stableTenantSettingsStore := tenantSettingsStore.entries().toArray();
+    stableControlGovernanceLinks := controlGovernanceLinks.entries().toArray();
+    stableSSOConfig := ?ssoConfig;
+  };
+
+  system func postupgrade() {
+    for ((k, v) in stableUserProfiles.vals()) { userProfiles.add(k, v) };
+    stableUserProfiles := [];
+    for ((k, v) in stableTenants.vals()) { tenants.add(k, v) };
+    stableTenants := [];
+    for ((k, v) in stableUserTenantMap.vals()) { userTenantMap.add(k, v) };
+    stableUserTenantMap := [];
+    for ((k, v) in stableDocuments.vals()) { documents.add(k, v) };
+    stableDocuments := [];
+    for ((k, v) in stableRisks.vals()) { risks.add(k, v) };
+    stableRisks := [];
+    for ((k, v) in stableGovernanceItems.vals()) { governanceItems.add(k, v) };
+    stableGovernanceItems := [];
+    for ((k, v) in stableFrameworks.vals()) { frameworks.add(k, v) };
+    stableFrameworks := [];
+    for ((k, v) in stableControls.vals()) { controls.add(k, v) };
+    stableControls := [];
+    for ((k, v) in stableGovTenantMap.vals()) { govTenantMap.add(k, v) };
+    stableGovTenantMap := [];
+    for ((k, v) in stableCtrlTenantMap.vals()) { ctrlTenantMap.add(k, v) };
+    stableCtrlTenantMap := [];
+    for ((k, v) in stableDocTenantMap.vals()) { docTenantMap.add(k, v) };
+    stableDocTenantMap := [];
+    for ((k, v) in stableTenantOrgs.vals()) { tenantOrgs.add(k, v) };
+    stableTenantOrgs := [];
+    for ((k, v) in stableTenantUsers.vals()) { tenantUsers.add(k, v) };
+    stableTenantUsers := [];
+    for ((k, v) in stableTenantUsersByEmail.vals()) { tenantUsersByEmail.add(k, v) };
+    stableTenantUsersByEmail := [];
+    for ((k, v) in stableSessionTokens.vals()) { sessionTokens.add(k, v) };
+    stableSessionTokens := [];
+    for ((k, v) in stableUploadedDocuments.vals()) { uploadedDocuments.add(k, v) };
+    stableUploadedDocuments := [];
+    for ((k, v) in stableGovAttachments.vals()) { govAttachments.add(k, v) };
+    stableGovAttachments := [];
+    for ((k, v) in stableGovFrameworkMappings.vals()) { govFrameworkMappings.add(k, v) };
+    stableGovFrameworkMappings := [];
+    for ((k, v) in stableTenantOrgNatIdMap.vals()) { tenantOrgNatIdMap.add(k, v) };
+    stableTenantOrgNatIdMap := [];
+    for ((k, v) in stableTenantSettingsStore.vals()) { tenantSettingsStore.add(k, v) };
+    stableTenantSettingsStore := [];
+    for ((k, v) in stableControlGovernanceLinks.vals()) { controlGovernanceLinks.add(k, v) };
+    stableControlGovernanceLinks := [];
+    switch (stableSSOConfig) {
+      case (?cfg) { ssoConfig := cfg; stableSSOConfig := null };
+      case (null) {};
+    };
   };
 
 };

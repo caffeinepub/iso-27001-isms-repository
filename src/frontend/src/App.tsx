@@ -153,15 +153,24 @@ function AppShell() {
       setOnboardingChecked(true);
       return;
     }
-    actor
-      .isTenantOnboardingDone(userId)
-      .then((done: boolean) => {
-        setNeedsOnboarding(!done);
+    // Wrap in try-catch to handle synchronous errors (function not in IDL)
+    try {
+      const promise = actor.isTenantOnboardingDone(userId);
+      if (!promise || typeof promise.then !== "function") {
         setOnboardingChecked(true);
-      })
-      .catch(() => {
-        setOnboardingChecked(true); // If backend doesn't support it, skip
-      });
+        return;
+      }
+      promise
+        .then((done: boolean) => {
+          setNeedsOnboarding(!done);
+          setOnboardingChecked(true);
+        })
+        .catch(() => {
+          setOnboardingChecked(true); // If backend doesn't support it, skip
+        });
+    } catch {
+      setOnboardingChecked(true);
+    }
   }, [
     actor,
     actorLoading,

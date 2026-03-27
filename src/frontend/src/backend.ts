@@ -1472,6 +1472,42 @@ export class Backend implements backendInterface {
     async getControlGovernanceLink(tenantDomain: string, controlId: string): Promise<ControlGovernanceLink | null> {
         try { const r = await (this.actor as any).getControlGovernanceLink(tenantDomain, controlId); return r ?? null; } catch { return null; }
     }
+
+    async getGovernanceItemsAsTenantUser(sessionToken: string): Promise<Array<GovernanceItem>> {
+        return await (this.actor as any).getGovernanceItemsAsTenantUser(sessionToken);
+    }
+
+    async createGovernanceItemAsTenantUser(sessionToken: string, input: CreateGovernanceItemInput): Promise<bigint> {
+        return await (this.actor as any).createGovernanceItemAsTenantUser(sessionToken, input);
+    }
+
+    async updateGovernanceItemAsTenantUser(sessionToken: string, input: UpdateGovernanceItemInput): Promise<GovernanceItem> {
+        return await (this.actor as any).updateGovernanceItemAsTenantUser(sessionToken, input);
+    }
+
+    async getComplianceControlsAsTenantUser(sessionToken: string, frameworkId: bigint): Promise<Array<ComplianceControl>> {
+        return await (this.actor as any).getComplianceControlsAsTenantUser(sessionToken, frameworkId);
+    }
+
+    async createComplianceControlAsTenantUser(sessionToken: string, input: CreateComplianceControlInput): Promise<bigint> {
+        return await (this.actor as any).createComplianceControlAsTenantUser(sessionToken, input);
+    }
+
+    async saveTenantSettingsByAdmin(settings: TenantSettings): Promise<boolean> {
+        return await (this.actor as any).saveTenantSettingsByAdmin(settings);
+    }
+
+    async saveTenantSettingsAsTenantUser(sessionToken: string, settings: TenantSettings): Promise<boolean> {
+        return await (this.actor as any).saveTenantSettingsAsTenantUser(sessionToken, settings);
+    }
+
+    async getGovernanceAttachmentsAsTenantUser(sessionToken: string): Promise<Array<[bigint, GovAttachmentMeta]>> {
+        return await (this.actor as any).getGovernanceAttachmentsAsTenantUser(sessionToken);
+    }
+
+    async getGovernanceFrameworkMappingsAsTenantUser(sessionToken: string): Promise<Array<[bigint, GovFrameworkMapping]>> {
+        return await (this.actor as any).getGovernanceFrameworkMappingsAsTenantUser(sessionToken);
+    }
 }
 function from_candid_ApprovalStatus_n79(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _ApprovalStatus): ApprovalStatus {
     return from_candid_variant_n80(_uploadFile, _downloadFile, value);
