@@ -86,13 +86,22 @@ export function Layout({
     : (callerProfile?.email ?? null);
 
   const handleLogout = async () => {
-    if (isTenantMode && onTenantLogout) {
-      onTenantLogout();
-    } else {
-      await clear();
-      queryClient.clear();
-    }
     setMobileOpen(false);
+    if (isTenantMode) {
+      // Clear tenant session from storage first, then reload for a clean login page
+      localStorage.removeItem("tenantUser");
+      if (onTenantLogout) onTenantLogout();
+      window.location.reload();
+    } else {
+      // II logout: clear auth then reload to avoid useEffect race conditions
+      try {
+        await clear();
+      } catch {
+        /* ignore */
+      }
+      queryClient.clear();
+      window.location.reload();
+    }
   };
 
   const allNavItems = [
