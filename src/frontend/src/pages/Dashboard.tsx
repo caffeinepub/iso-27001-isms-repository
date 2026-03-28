@@ -13,6 +13,16 @@ import {
 } from "lucide-react";
 import { motion } from "motion/react";
 import { useMemo } from "react";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import type { Page } from "../App";
 import { RiskLevel, RiskStatus } from "../backend";
 import { useTenantUser } from "../contexts/TenantUserContext";
@@ -25,19 +35,6 @@ import {
   useRisks,
   useRisksAsTenantUser,
 } from "../hooks/useQueries";
-
-function riskLevelColor(level: RiskLevel) {
-  switch (level) {
-    case RiskLevel.critical:
-      return "bg-red-500/15 text-red-400 border-red-500/30";
-    case RiskLevel.high:
-      return "bg-orange-500/15 text-orange-400 border-orange-500/30";
-    case RiskLevel.medium:
-      return "bg-yellow-500/15 text-yellow-400 border-yellow-500/30";
-    case RiskLevel.low:
-      return "bg-green-500/15 text-green-400 border-green-500/30";
-  }
-}
 
 function govStatusColor(status: string) {
   switch (status) {
@@ -338,40 +335,66 @@ export function Dashboard({
                 Risk Distribution
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
-              {risksLoading
-                ? [1, 2, 3, 4].map((k) => (
-                    <Skeleton key={k} className="h-10 w-full" />
-                  ))
-                : riskLevelCounts.map(({ level, count }) => (
-                    <div
-                      key={level}
-                      className="flex items-center justify-between p-2.5 rounded-lg bg-muted/30"
-                    >
-                      <div className="flex items-center gap-2">
-                        <div
-                          className={`w-2.5 h-2.5 rounded-full ${
+            <CardContent>
+              {risksLoading ? (
+                <Skeleton className="h-40 w-full" />
+              ) : (
+                <ResponsiveContainer width="100%" height={160}>
+                  <BarChart
+                    data={riskLevelCounts.map(({ level, count }) => ({
+                      name: level.charAt(0).toUpperCase() + level.slice(1),
+                      count,
+                      level,
+                    }))}
+                    margin={{ top: 4, right: 4, left: -24, bottom: 0 }}
+                  >
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      stroke="rgba(128,128,128,0.15)"
+                      vertical={false}
+                    />
+                    <XAxis
+                      dataKey="name"
+                      tick={{ fontSize: 10 }}
+                      axisLine={false}
+                      tickLine={false}
+                    />
+                    <YAxis
+                      tick={{ fontSize: 10 }}
+                      axisLine={false}
+                      tickLine={false}
+                      allowDecimals={false}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        fontSize: 11,
+                        borderRadius: "6px",
+                        padding: "6px 10px",
+                      }}
+                      cursor={{ fill: "rgba(100,200,255,0.06)" }}
+                    />
+                    <Bar dataKey="count" radius={[4, 4, 0, 0]}>
+                      {riskLevelCounts.map(({ level }) => (
+                        <Cell
+                          key={level}
+                          fill={
                             level === RiskLevel.critical
-                              ? "bg-red-400"
+                              ? "#ef4444"
                               : level === RiskLevel.high
-                                ? "bg-orange-400"
+                                ? "#f97316"
                                 : level === RiskLevel.medium
-                                  ? "bg-yellow-400"
-                                  : "bg-green-400"
-                          }`}
+                                  ? "#eab308"
+                                  : "#22c55e"
+                          }
                         />
-                        <span className="text-xs text-foreground capitalize">
-                          {level}
-                        </span>
-                      </div>
-                      <Badge className={`text-xs ${riskLevelColor(level)}`}>
-                        {count}
-                      </Badge>
-                    </div>
-                  ))}
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
 
               {!risksLoading && (isTenantUser ? true : !!riskStats) && (
-                <div className="pt-2 border-t border-border">
+                <div className="pt-3 border-t border-border mt-2 space-y-1.5">
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-muted-foreground">
                       Open Risks
@@ -380,7 +403,7 @@ export function Dashboard({
                       {openRisks}
                     </span>
                   </div>
-                  <div className="flex items-center justify-between mt-1">
+                  <div className="flex items-center justify-between">
                     <span className="text-xs text-muted-foreground">
                       Avg Residual Score
                     </span>
@@ -583,15 +606,7 @@ export function Dashboard({
 
       <footer className="mt-8 py-4 border-t border-border text-center">
         <p className="text-xs text-muted-foreground">
-          © {new Date().getFullYear()}. Built with love using{" "}
-          <a
-            href={`https://caffeine.ai?utm_source=caffeine-footer&utm_medium=referral&utm_content=${encodeURIComponent(window.location.hostname)}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-primary hover:underline"
-          >
-            caffeine.ai
-          </a>
+          © {new Date().getFullYear()} CybXSan. Enterprise GRC Platform.
         </p>
       </footer>
     </div>

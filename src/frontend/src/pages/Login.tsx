@@ -173,7 +173,7 @@ export function Login({ onNavigateTenantLogin }: LoginProps) {
                 <div className="w-full login-divider" />
               </div>
               <div className="relative flex justify-center">
-                <span className="px-3 text-[11px] text-slate-500 bg-[oklch(0.14_0.02_240)]">
+                <span className="px-3 text-[11px] text-muted-foreground bg-card">
                   or
                 </span>
               </div>
@@ -195,16 +195,8 @@ export function Login({ onNavigateTenantLogin }: LoginProps) {
         </motion.div>
 
         {/* Footer */}
-        <p className="text-center text-[11px] text-slate-600 mt-6">
-          © {new Date().getFullYear()}. Built with love using{" "}
-          <a
-            href={`https://caffeine.ai?utm_source=caffeine-footer&utm_medium=referral&utm_content=${encodeURIComponent(window.location.hostname)}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-slate-500 hover:text-slate-400 transition-colors"
-          >
-            caffeine.ai
-          </a>
+        <p className="text-center text-[11px] text-muted-foreground/50 mt-6">
+          © {new Date().getFullYear()} CybXSan. Enterprise GRC Platform.
         </p>
       </motion.div>
     </div>

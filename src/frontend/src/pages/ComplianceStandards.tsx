@@ -97,11 +97,11 @@ function deriveControlStatus(
 function controlStatusColor(status: ControlStatus) {
   switch (status) {
     case ControlStatus.fullyImplemented:
-      return "bg-green-500/15 text-green-400 border-green-500/30";
+      return "bg-emerald-500/20 text-emerald-400 border-emerald-500/40 font-semibold";
     case ControlStatus.partiallyImplemented:
-      return "bg-yellow-500/15 text-yellow-400 border-yellow-500/30";
+      return "bg-amber-500/20 text-amber-400 border-amber-500/40 font-semibold";
     case ControlStatus.notImplemented:
-      return "bg-red-500/15 text-red-400 border-red-500/30";
+      return "bg-red-500/20 text-red-400 border-red-500/40 font-semibold";
     case ControlStatus.notApplicable:
       return "bg-slate-500/15 text-slate-400 border-slate-500/30";
   }
@@ -508,7 +508,7 @@ function FrameworkControls({
                   >
                     <SelectTrigger
                       data-ocid={`compliance.status.select.${idx + 1}`}
-                      className={`h-7 text-[11px] w-36 border ${controlStatusColor(control.status)}`}
+                      className={`h-7 text-[11px] w-40 border ${controlStatusColor(control.status)}`}
                     >
                       <SelectValue />
                     </SelectTrigger>
@@ -741,8 +741,8 @@ export function ComplianceStandards() {
                   onClick={() => setSelectedFwId(fw.id)}
                   className={`relative text-left p-3 rounded-xl border transition-all ${
                     isActive
-                      ? "border-primary/50 bg-primary/10"
-                      : "border-border/50 bg-card hover:border-primary/30"
+                      ? "border-primary/60 bg-primary/10 shadow-[0_0_0_1px_oklch(var(--primary)/0.15)]"
+                      : "border-border bg-card hover:border-primary/40 hover:bg-primary/5"
                   }`}
                 >
                   <p className="text-xs font-semibold text-foreground mb-1 line-clamp-1">

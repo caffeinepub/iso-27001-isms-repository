@@ -197,16 +197,8 @@ export function TenantLogin({
           </div>
         </motion.div>
 
-        <p className="text-center text-[11px] text-slate-600 mt-6">
-          © {new Date().getFullYear()}. Built with love using{" "}
-          <a
-            href={`https://caffeine.ai?utm_source=caffeine-footer&utm_medium=referral&utm_content=${encodeURIComponent(window.location.hostname)}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-slate-500 hover:text-slate-400 transition-colors"
-          >
-            caffeine.ai
-          </a>
+        <p className="text-center text-[11px] text-muted-foreground/50 mt-6">
+          © {new Date().getFullYear()} CybXSan. Enterprise GRC Platform.
         </p>
       </motion.div>
     </div>

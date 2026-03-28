@@ -1057,6 +1057,7 @@ export function RiskRegister() {
 
   const [filterLevel, setFilterLevel] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [searchText, setSearchText] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingRisk, setEditingRisk] = useState<RiskItem | null>(null);
   const [form, setForm] = useState<RiskFormState>(EMPTY_FORM);
@@ -1069,8 +1070,16 @@ export function RiskRegister() {
       list = list.filter((r) => r.riskLevel === filterLevel);
     if (filterStatus !== "all")
       list = list.filter((r) => r.status === filterStatus);
+    if (searchText.trim()) {
+      const q = searchText.toLowerCase();
+      list = list.filter(
+        (r) =>
+          r.title.toLowerCase().includes(q) ||
+          r.description.toLowerCase().includes(q),
+      );
+    }
     return list;
-  }, [risks, filterLevel, filterStatus]);
+  }, [risks, filterLevel, filterStatus, searchText]);
 
   // Auto-derive Inherent Risk level string from likelihood × impact
   const computedInherentLevel = inherentRiskLevel(
@@ -1358,9 +1367,21 @@ export function RiskRegister() {
 
       <Card className="bg-card border-border mb-6">
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-semibold font-display">
-            Filters
-          </CardTitle>
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <CardTitle className="text-sm font-semibold font-display">
+              Filters
+            </CardTitle>
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+              <Input
+                data-ocid="risk.search_input"
+                placeholder="Search risks..."
+                value={searchText}
+                onChange={(e) => setSearchText(e.target.value)}
+                className="pl-8 h-8 text-xs w-52 bg-muted/30"
+              />
+            </div>
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid sm:grid-cols-2 gap-3">
@@ -1455,23 +1476,43 @@ export function RiskRegister() {
             <div className="overflow-x-auto">
               <Table data-ocid="risk.table">
                 <TableHeader>
-                  <TableRow className="border-border hover:bg-transparent">
-                    <TableHead className="text-xs w-12">#</TableHead>
-                    <TableHead className="text-xs">Title</TableHead>
-                    <TableHead className="text-xs">Threat Category</TableHead>
-                    <TableHead className="text-xs text-center">L</TableHead>
-                    <TableHead className="text-xs text-center">I</TableHead>
-                    <TableHead className="text-xs text-center">
-                      Inherent Risk
+                  <TableRow className="border-border hover:bg-transparent bg-muted/50">
+                    <TableHead className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground w-12">
+                      #
                     </TableHead>
-                    <TableHead className="text-xs text-center">
+                    <TableHead className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      Title
+                    </TableHead>
+                    <TableHead className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      Threat
+                    </TableHead>
+                    <TableHead className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground text-center">
+                      L
+                    </TableHead>
+                    <TableHead className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground text-center">
+                      I
+                    </TableHead>
+                    <TableHead className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground text-center">
+                      Inherent
+                    </TableHead>
+                    <TableHead className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground text-center">
                       Residual
                     </TableHead>
-                    <TableHead className="text-xs">Level</TableHead>
-                    <TableHead className="text-xs">Treatment</TableHead>
-                    <TableHead className="text-xs">Status</TableHead>
-                    <TableHead className="text-xs">Org</TableHead>
-                    <TableHead className="text-xs w-20">Actions</TableHead>
+                    <TableHead className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      Level
+                    </TableHead>
+                    <TableHead className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      Treatment
+                    </TableHead>
+                    <TableHead className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      Status
+                    </TableHead>
+                    <TableHead className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      Org
+                    </TableHead>
+                    <TableHead className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground w-20">
+                      Actions
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>

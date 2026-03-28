@@ -226,10 +226,10 @@ export function Layout({
                 onNavigate(item.id);
                 setMobileOpen(false);
               }}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 ${
+              className={`w-full flex items-center gap-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 ${
                 active
-                  ? "bg-primary/15 text-primary border border-primary/20"
-                  : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                  ? "bg-primary/15 text-primary border border-primary/20 border-l-2 border-l-primary pl-[calc(0.75rem-2px)] pr-3"
+                  : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground px-3"
               }`}
             >
               <Icon className={`w-4 h-4 ${active ? "text-primary" : ""}`} />
@@ -249,8 +249,12 @@ export function Layout({
           <div className="space-y-2">
             <div className="px-3 py-2.5 rounded-lg bg-sidebar-accent">
               <div className="flex items-center gap-2 mb-1">
-                <Shield className="w-3.5 h-3.5 text-primary shrink-0" />
-                <span className="text-xs font-medium text-sidebar-accent-foreground truncate max-w-[120px]">
+                <div className="w-7 h-7 rounded-full bg-primary/20 text-primary text-xs font-bold flex items-center justify-center shrink-0">
+                  {(displayEmail ?? (isTenantMode ? "T" : "A"))
+                    .charAt(0)
+                    .toUpperCase()}
+                </div>
+                <span className="text-xs font-medium text-sidebar-accent-foreground truncate max-w-[110px]">
                   {displayEmail ?? (isTenantMode ? "Tenant User" : "Signed In")}
                 </span>
                 <Badge
