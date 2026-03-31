@@ -1,16 +1,4 @@
-@font-face {
-  font-family: "Bricolage Grotesque";
-  src: url("/assets/fonts/BricolageGrotesque.woff2") format("woff2");
-  font-weight: 200 800;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Plus Jakarta Sans";
-  src: url("/assets/fonts/PlusJakartaSans.woff2") format("woff2");
-  font-weight: 300 700;
-  font-display: swap;
-}
+@import url("https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&family=Plus+Jakarta+Sans:wght@300..700&display=swap");
 
 @tailwind base;
 @tailwind components;

@@ -36,6 +36,16 @@ import {
   useRisksAsTenantUser,
 } from "../hooks/useQueries";
 
+// Safely convert Candid variant objects to string (e.g. { active: null } -> "active")
+function normalizeStatus(status: unknown): string {
+  if (typeof status === "string") return status;
+  if (status && typeof status === "object") {
+    const key = Object.keys(status)[0];
+    if (key) return key;
+  }
+  return "";
+}
+
 function govStatusColor(status: string) {
   switch (status) {
     case "active":
@@ -482,9 +492,9 @@ export function Dashboard({
                       </p>
                     </div>
                     <Badge
-                      className={`text-[10px] shrink-0 ${govStatusColor(item.status as string)}`}
+                      className={`text-[10px] shrink-0 ${govStatusColor(normalizeStatus(item.status))}`}
                     >
-                      {(item.status as string).replace(/([A-Z])/g, " $1")}
+                      {normalizeStatus(item.status).replace(/([A-Z])/g, " $1")}
                     </Badge>
                   </div>
                 ))

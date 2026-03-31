@@ -28,6 +28,25 @@ import type {
 } from "../types/blobStorage";
 import type { Document, DocumentStatus } from "../types/document";
 import { uploadFileToStorage } from "../utils/uploadToStorage";
+
+// Normalize a Candid variant object to its key string (e.g. { active: null } -> "active")
+function normalizeVariant(v: unknown): string {
+  if (typeof v === "string") return v;
+  if (v && typeof v === "object") {
+    const key = Object.keys(v)[0];
+    if (key) return key;
+  }
+  return "";
+}
+
+function normalizeGovernanceItems(items: GovernanceItem[]): GovernanceItem[] {
+  return items.map((item) => ({
+    ...item,
+    status: normalizeVariant(item.status) as GovernanceItem["status"],
+    category: normalizeVariant(item.category) as GovernanceItem["category"],
+  }));
+}
+
 import { useActor } from "./useActor";
 
 // ── Documents ──────────────────────────────────────────────────────────────
@@ -892,7 +911,8 @@ export function useGovernanceItemsAsTenantUser(userId: string | null) {
     queryKey: ["governanceItemsAsTenantUser", userId],
     queryFn: async () => {
       if (!actor || !userId) return [];
-      return (actor as any).getGovernanceItemsAsTenantUser(userId);
+      const items = await (actor as any).getGovernanceItemsAsTenantUser(userId);
+      return normalizeGovernanceItems(items);
     },
     enabled: !!actor && !isFetching && !!userId,
   });
